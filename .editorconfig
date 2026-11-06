@@ -123,6 +123,8 @@ resharper_braces_for_while = not_required
 resharper_braces_for_lock = not_required
 resharper_braces_for_using = not_required
 resharper_braces_redundant = false
+resharper_trailing_comma_in_multiline_lists = true    # CSharpier adds them
+resharper_trailing_comma_in_singleline_lists = false
 
 # ReSharper applies dotnet_naming_* rules less selectively than Roslyn (private const/static readonly got the
 # _camelCase rule), so state the same policy in its own terms.

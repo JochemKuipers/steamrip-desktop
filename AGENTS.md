@@ -34,12 +34,16 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ## Build, test, run
 
 ```sh
-dotnet tool restore                            # once per clone: CSharpier + ReSharper CLI (dotnet-tools.json)
-git config core.hooksPath .githooks            # once per clone: pre-commit format+build, pre-push full gate
-dotnet build                                   # whole solution; analyzers on, warnings are errors
-dotnet test                                    # 34 tests, ~1 s, no network
-dotnet run --project src/SteamRip.App -- --show --verbose
+make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
+make build        # whole solution; analyzers on, warnings are errors
+make test         # 34 tests, ~1 s, no network
+make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
+make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
+make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails
+make help         # everything else: publish, watch, logs, log-tail, db, dev-reset
 ```
+
+The Makefile is a thin wrapper; the underlying commands are `dotnet tool restore`, `git config core.hooksPath .githooks`, `dotnet build`, `dotnet test`, `dotnet run --project src/SteamRip.App -- --show --verbose`, `dotnet csharpier format .`, `scripts/inspect.sh`.
 
 ## Code quality gates
 
@@ -58,12 +62,7 @@ Rules of engagement:
 - Suppress a one-off ReSharper finding with `// ReSharper disable once <Id> -- <why>`; Roslyn with `[SuppressMessage(..., Justification = "...")]`. Both need the reason.
 - The pre-commit hook formats staged files and builds; the pre-push hook also runs the tests and ReSharper (~1 min). Skip with `--no-verify` only when you are about to fix it in the next commit.
 
-Use a throwaway profile when running the app during development so you never touch the owner's real library and DB:
-
-```sh
-XDG_CONFIG_HOME=/tmp/sr-cfg dotnet run --project src/SteamRip.App -- --show --verbose
-# settings at /tmp/sr-cfg/steamrip-desktop/settings.json; set LibraryRoot to e.g. /tmp/sr-lib
-```
+Use a throwaway profile when running the app during development so you never touch the owner's real library and DB: `make run-dev` (= `XDG_CONFIG_HOME=/tmp/sr-cfg dotnet run --project src/SteamRip.App -- --show --verbose`). Settings land in `/tmp/sr-cfg/steamrip-desktop/settings.json`; set `LibraryRoot` to e.g. `/tmp/sr-lib`. `make logs` / `make log-tail` / `make db` read that profile; `make dev-reset` wipes it.
 
 ## How to verify your work
 
