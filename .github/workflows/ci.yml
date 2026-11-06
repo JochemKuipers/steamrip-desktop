@@ -38,7 +38,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: dotnet build -c Release
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=results.trx"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results
@@ -53,7 +53,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: dotnet build
       - run: scripts/inspect.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: resharper-report
@@ -72,7 +72,7 @@ jobs:
           fetch-depth: 0 # git describe needs the tags
       - uses: ./.github/actions/setup
       - run: scripts/package.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-${{ github.sha }}
           path: dist/
@@ -89,7 +89,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: ./scripts/package-windows.ps1
         shell: pwsh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-${{ github.sha }}
           path: dist/

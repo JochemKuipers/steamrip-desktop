@@ -29,7 +29,7 @@ jobs:
           dotnet build -c Release
           dotnet test -c Release --no-build
       - run: VERSION="${GITHUB_REF_NAME#v}" scripts/package.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: dist/
@@ -45,7 +45,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: ./scripts/package-windows.ps1 -Version ($env:GITHUB_REF_NAME.TrimStart('v'))
         shell: pwsh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/
