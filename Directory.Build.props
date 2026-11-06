@@ -9,6 +9,8 @@
         <!-- Local builds are "0.0.0-dev"; scripts/package.sh and the Release workflow pass -p:Version=<tag>.
          The SDK appends the commit sha to InformationalVersion, which is what the app logs and shows. -->
         <Version>0.0.0-dev</Version>
+        <Authors>Jochem Kuipers</Authors>
+        <Copyright>© 2026 Jochem Kuipers. MIT License.</Copyright>
 
         <!-- Quality gates: .NET analyzers at the recommended level plus IDE style rules from .editorconfig,
          all treated as errors so `dotnet build` is the check. Whitespace is CSharpier's job (see .csharpierrc.yaml). -->

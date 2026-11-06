@@ -11,6 +11,7 @@ priority: optional
 maintainer: Jochem Kuipers <jochem@kuipers.cc>
 vendor: Jochem Kuipers
 homepage: https://github.com/JochemKuipers/steamrip-desktop
+license: MIT
 description: |
   Tray app that keeps a steamrip.com game library synced, installed, launched (Proton via umu) and updated.
   Self-contained .NET build; no runtime needed.
@@ -24,6 +25,16 @@ contents:
     dst: /usr/share/applications/steamrip-desktop.desktop
   - src: src/SteamRip.App/Assets/app.png
     dst: /usr/share/icons/hicolor/256x256/apps/steamrip-desktop.png
+  # Debian wants the licence as /usr/share/doc/<pkg>/copyright; Fedora and Arch as /usr/share/licenses/<pkg>/.
+  - src: LICENSE
+    dst: /usr/share/doc/steamrip-desktop/copyright
+    packager: deb
+  - src: LICENSE
+    dst: /usr/share/licenses/steamrip-desktop/LICENSE
+    packager: rpm
+  - src: LICENSE
+    dst: /usr/share/licenses/steamrip-desktop/LICENSE
+    packager: archlinux
 
 # Avalonia's X11 backend (also under XWayland) and fontconfig are the only hard runtime needs.
 # Archive tools, the launcher and the keyring helper are discovered on PATH at run time, so they are soft.

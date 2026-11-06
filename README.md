@@ -91,3 +91,7 @@ Override the config directory with `XDG_CONFIG_HOME` (handy for a throwaway test
 ## Status
 
 Verified on CachyOS (KDE/Wayland, .NET 10.0.114, umu-launcher 1.4.3). The Windows code paths (DPAPI secrets, PowerShell toast, HKCU autostart, direct exe launch) compile and are structured for it but have not been run on a Windows machine yet.
+
+## License
+
+[MIT](LICENSE).
