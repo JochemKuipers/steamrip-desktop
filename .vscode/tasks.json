@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dotnet: test",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "test",
+        "${workspaceFolder}/tests/SteamRip.Core.Tests/SteamRip.Core.Tests.csproj"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "dotnet: publish-linux",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/SteamRip.App/SteamRip.App.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "linux-x64",
+        "--self-contained",
+        "true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "dotnet: publish-win",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "publish",
+        "${workspaceFolder}/src/SteamRip.App/SteamRip.App.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "win-x64",
+        "--self-contained",
+        "true"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "dotnet: watch",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "${workspaceFolder}/src/SteamRip.App/SteamRip.App.csproj",
+        "-r",
+        "linux-x64"
+      ],
+      "problemMatcher": "$msCompile",
+      "isBackground": true
+    }
+  ]
+}

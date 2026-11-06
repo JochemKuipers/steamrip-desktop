@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SteamRip.App",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/src/SteamRip.App/SteamRip.App.csproj",
+      "args": ["--show"]
+    },
+    {
+      "name": "ReSharper: .NET Core / .NET 5+ Executable",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/SteamRip.App/bin/Debug/net10.0/linux-x64/steamrip-desktop.dll",
+      "cwd": "${workspaceFolder}/src/SteamRip.App",
+      "args": ["--show"],
+      "env": {},
+      "preLaunchTask": "ReSharper: Build"
+    },
+    {
+      "name": "ReSharper: .NET Core / .NET 5+ Attach",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:resharper.debugger.pickProcess.coreclr}"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "JetBrains.resharper-code",
+    "AvaloniaTeam.vscode-avalonia"
+  ],
+  "unwantedRecommendations": [
+    "ms-dotnettools.csharp",
+    "ms-dotnettools.csdevkit"
+  ]
+}

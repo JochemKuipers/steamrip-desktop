@@ -1,0 +1,10 @@
+{
+  "resharper.solution.autoOpenSingleSolution": true,
+  "resharper.build.useResharperBuild": true,
+  "editor.formatOnSave": true,
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true
+  },
+  "avalonia.axaml.completion": true
+}
