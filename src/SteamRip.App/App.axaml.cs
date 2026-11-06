@@ -182,6 +182,7 @@ public sealed class AppServices : IAsyncDisposable
     public required GameLauncher Launcher { get; init; }
     public required FileLoggerProvider LogFile { get; init; }
     public required ILogger Log { get; init; }
+    public required Services.CoverCache Covers { get; init; }
 
     public static AppServices Build(string[] args)
     {
@@ -305,6 +306,11 @@ public sealed class AppServices : IAsyncDisposable
             LogFile = logFile,
             Log = log,
             Launcher = launcher,
+            Covers = new Services.CoverCache(
+                new HttpClient { Timeout = TimeSpan.FromSeconds(20) },
+                Path.Combine(Settings.DefaultDir, "covers"),
+                loggers.CreateLogger<Services.CoverCache>()
+            ),
         };
     }
 

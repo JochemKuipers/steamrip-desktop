@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SteamRip.Core.Catalog;
@@ -31,7 +32,7 @@ public partial class BrowseViewModel : ObservableObject
         var installed = _s.Db.GetInstalls().ToDictionary(g => g.PostId);
         Items.Clear();
         foreach (var p in posts)
-            Items.Add(new BrowseItem(this, p, installed.ContainsKey(p.Id), _s.Resolvers.Supported));
+            Items.Add(new BrowseItem(this, p, installed.ContainsKey(p.Id), _s.Resolvers.Supported, _s.Covers));
         var total = _s.Db.PostCount();
         Summary =
             total == 0
@@ -58,9 +59,36 @@ public sealed partial class BrowseItem(
     BrowseViewModel owner,
     CatalogPost post,
     bool installed,
-    IReadOnlyCollection<Hoster> supported
+    IReadOnlyCollection<Hoster> supported,
+    Services.CoverCache covers
 ) : ObservableObject
 {
+    private Bitmap? _cover;
+    private bool _coverRequested;
+
+    /// <summary>Fetched on first read, i.e. when the card is actually rendered.</summary>
+    public Bitmap? Cover
+    {
+        get
+        {
+            if (!_coverRequested)
+            {
+                _coverRequested = true;
+                _ = LoadCoverAsync();
+            }
+            return _cover;
+        }
+    }
+    public string Initial => post.Name.Length > 0 ? post.Name[..1].ToUpperInvariant() : "?";
+
+    private async Task LoadCoverAsync()
+    {
+        var bmp = await covers.GetAsync(post.SteamAppId);
+        if (bmp is null) return;
+        _cover = bmp;
+        OnPropertyChanged(nameof(Cover));
+    }
+
     public CatalogPost Post => post;
     public string Name => post.Name;
     public string Version => UpdateDetector.Normalize(post.VersionKey) ?? "—";

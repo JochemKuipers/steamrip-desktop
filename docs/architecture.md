@@ -38,6 +38,7 @@ flowchart LR
 
 - `Program.cs` — single-instance mutex `steamrip-desktop-single-instance`; a second launch writes `<config>/.show`, which the running instance watches and reacts to by showing the window.
 - `App.axaml(.cs)` — palette resources, `TrayIcon` + `NativeMenu` (Open library / Check for updates now / Pause auto-updates / Quit), `ShutdownMode.OnExplicitShutdown`, hide-on-close, `--hidden`/`--show`, crash logging hooks. `AppServices.Build(args)` constructs the whole object graph by hand (no DI container) and logs tool discovery (unrar/7z/umu/wine/Proton builds) at startup.
+- `Services/CoverCache.cs` — covers from `cdn.cloudflare.steamstatic.com/steam/apps/<appid>/library_600x900.jpg` (fallback `header.jpg`), no API key. Fetched on first read of an item's `Cover` property (i.e. when the card renders), 4 downloads in flight, disk cache `<config>/covers/<appid>.jpg`, decoded once at 140 px width and shared in memory, 404s recorded as `<appid>.missing` for 7 days. Posts without a Steam app id (~1.5 %) show the name's initial.
 - ViewModels (CommunityToolkit.Mvvm): `MainViewModel` (nav, sync line, solver health every 30 s, counts, 15 s poll while games run), `LibraryViewModel`/`LibraryItem` (Play/Stop, Update, exe/Proton/args, Forget/Delete), `BrowseViewModel`, `QueueViewModel` (cancel, solve in browser), `ActivityViewModel` (events + live log tail), `SettingsViewModel`.
 - Views: `MainWindow.axaml` with DataTemplates per VM; `Styles.axaml`. Palette: ink `#141821`, amber `#F2B544`; mono font for paths/log.
 

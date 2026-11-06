@@ -12,6 +12,7 @@ Personal-use project. The code is what one person needs to run a game library ha
 - **Play**: `umu-run` + Proton with `WINEPREFIX=<game>/prefix`, exe auto-detected, per-game Proton/exe/argument overrides, playtime tracking. On Windows the exe runs directly.
 - **Update**: periodic check; auto-downloads and reinstalls library games; waits for a running game to exit first; prefix and saves survive the swap.
 - **Tray**: open library / check now / pause auto-updates / quit; OS notifications; autostart; hidden start.
+- **Covers**: game art from Steam's public CDN via `steam_app_id`, lazy-loaded per card, cached on disk.
 - **Logging**: daily rotating log files under the config dir; live tail in the Activity view.
 
 ## Requirements
@@ -48,7 +49,7 @@ dotnet publish src/SteamRip.App -c Release -r win-x64
 
 | | Linux | Windows |
 | --- | --- | --- |
-| Config, DB, logs | `~/.config/steamrip-desktop/` (`settings.json`, `steamrip.db`, `logs/`) | `%APPDATA%\steamrip-desktop\` |
+| Config, DB, logs, cover cache | `~/.config/steamrip-desktop/` (`settings.json`, `steamrip.db`, `logs/`, `covers/`) | `%APPDATA%\steamrip-desktop\` |
 | Library (default) | `~/Games/SteamRIP/<slug>/` | `%USERPROFILE%\Games\SteamRIP\<slug>\` |
 | Game prefix | `<library>/<slug>/prefix/` | n/a |
 | Downloads (default) | `~/Games/SteamRIP/.downloads/<slug>/` | `%USERPROFILE%\Games\SteamRIP\.downloads\<slug>\` |
