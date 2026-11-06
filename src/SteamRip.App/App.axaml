@@ -28,7 +28,9 @@
     <!-- Popups (menus, flyouts, combo dropdowns) inherit Fluent's grey otherwise. Same ink/panel/line as the cards. -->
     <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="{StaticResource PanelColor}" />
     <SolidColorBrush x:Key="MenuFlyoutPresenterBorderBrush" Color="{StaticResource LineColor}" />
-    <Thickness x:Key="MenuFlyoutPresenterThemePadding">4</Thickness>
+    <!-- The presenter template reads these two, not Padding: they inset the hover highlight from the popup edge. -->
+    <Thickness x:Key="FlyoutBorderThemePadding">4,4,4,4</Thickness>
+    <Thickness x:Key="MenuFlyoutScrollerMargin">0</Thickness>
     <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="Transparent" />
     <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="{StaticResource RaisedColor}" />
     <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="{StaticResource LineColor}" />

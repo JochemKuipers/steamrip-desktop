@@ -152,7 +152,7 @@
   <Style Selector="MenuItem">
     <Setter Property="FontSize" Value="13" />
     <Setter Property="CornerRadius" Value="5" />
-    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Margin" Value="2,1" />
     <Setter Property="MinHeight" Value="0" />
   </Style>
   <Style Selector="MenuItem.danger">
