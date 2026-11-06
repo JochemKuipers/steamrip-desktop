@@ -62,10 +62,12 @@ Flags: `--show` (open the window even if "start hidden" is on), `--hidden`, `--v
 
 ```sh
 make package                 # local: .deb, .rpm, Arch .pkg.tar.zst and AppImage into dist/ (nfpm + appimagetool fetched into obj/tools)
-make release VERSION=1.2.3   # clean tree + full gate, tags v1.2.3, pushes; GitHub Actions does the rest
+make release                 # clean tree + full gate, tags today's version (v2026.11.6; .1, .2 … for a second release the same day), pushes
+make release VERSION=2026.11.6-rc1   # explicit version; a -suffix marks a pre-release
 ```
 
-The [Release workflow](.github/workflows/release.yml) builds the Linux packages on Ubuntu and the installer (Inno Setup) on Windows, publishes a GitHub Release with generated notes and `SHA256SUMS.txt`, then updates the AUR package from the released `.deb`. A `-rc1` suffix marks a pre-release and skips the AUR step. CI runs the same gates plus both packaging jobs on every push and PR, so the Windows build is proven on a Windows runner.
+Versions are dates, `YYYY.M.D` without zero padding.
+The [Release workflow](.github/workflows/release.yml) builds the Linux packages on Ubuntu and the installer (Inno Setup) on Windows, publishes a GitHub Release with generated notes and `SHA256SUMS.txt`, then updates the AUR package from the released `.deb`. A `-rc1` suffix marks a pre-release (deb/rpm render it as `~rc1` so it sorts below the final) and skips the AUR step. CI runs the same gates plus both packaging jobs on every push and PR, so the Windows build is proven on a Windows runner.
 
 ## Where things live
 

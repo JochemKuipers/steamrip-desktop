@@ -107,15 +107,22 @@ package: ## Linux packages into dist/: .deb, .rpm, Arch .pkg.tar.zst, AppImage (
 package-win: ## Windows installer into dist/ (needs Windows + Inno Setup 6; CI does this on a windows runner)
 	pwsh scripts/package-windows.ps1
 
-release: ## Tag and push a release: make release VERSION=1.2.3 (clean tree + full gate first; GitHub Actions does the rest)
-	@test -n "$(VERSION)" || { echo "usage: make release VERSION=1.2.3"; exit 2; }
-	@echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' || { echo "VERSION must be semver, e.g. 1.2.3 or 1.2.3-rc1"; exit 2; }
+# Calendar versions: YYYY.M.D (no zero padding, e.g. 2026.11.6). A second release on the same day gets
+# .1, .2, … appended automatically. VERSION=… overrides (a -rc1 style suffix marks a pre-release).
+release: ## Tag and push today's release (clean tree + full gate first; GitHub Actions does the rest). VERSION=… to override
 	@test -z "$$(git status --porcelain)" || { echo "working tree is not clean"; exit 2; }
-	@! git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null || { echo "tag v$(VERSION) already exists"; exit 2; }
-	$(MAKE) check
-	git tag -a "v$(VERSION)" -m "v$(VERSION)"
-	git push origin HEAD "v$(VERSION)"
-	@echo "Pushed v$(VERSION); the Release workflow will attach the packages: https://github.com/JochemKuipers/steamrip-desktop/releases/tag/v$(VERSION)"
+	@v="$(VERSION)"; \
+	if [ -z "$$v" ]; then \
+	  base="$$(date +%Y.%-m.%-d)"; v="$$base"; n=0; \
+	  while git rev-parse -q --verify "refs/tags/v$$v" >/dev/null; do n=$$((n+1)); v="$$base.$$n"; done; \
+	fi; \
+	echo "$$v" | grep -Eq '^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(\.[0-9]+)?(-[0-9A-Za-z.]+)?$$' || { echo "VERSION must be YYYY.M.D[.N][-suffix], e.g. 2026.11.6 or 2026.11.6.1 or 2026.11.6-rc1"; exit 2; }; \
+	! git rev-parse -q --verify "refs/tags/v$$v" >/dev/null || { echo "tag v$$v already exists"; exit 2; }; \
+	echo "releasing v$$v"; \
+	$(MAKE) check && \
+	git tag -a "v$$v" -m "v$$v" && \
+	git push origin HEAD "v$$v" && \
+	echo "Pushed v$$v; the Release workflow will attach the packages: https://github.com/JochemKuipers/steamrip-desktop/releases/tag/v$$v"
 
 ## ---- housekeeping --------------------------------------------------------------------------
 

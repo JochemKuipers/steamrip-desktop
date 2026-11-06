@@ -107,11 +107,11 @@ CachyOS, KDE on Wayland, .NET 10.0.114, `unrar`, `7z`, `secret-tool`, `gdbus`, `
 
 ## Releases and packaging
 
-Tag-driven: `make release VERSION=x.y.z` runs `make check`, tags `vx.y.z` and pushes; `.github/workflows/release.yml` builds and publishes. The version flows from the tag through `-p:Version=` (default `0.0.0-dev` in `Directory.Build.props`) into `AppServices.Version`, which the log and the Settings page show.
+Tag-driven calendar versions, `YYYY.M.D` without zero padding (`2026.11.6`; `.1`, `.2` appended for further releases the same day; `-rc1` suffix = pre-release). `make release` picks today's version, runs `make check`, tags and pushes; `.github/workflows/release.yml` builds and publishes. The version flows from the tag through `-p:Version=` (default `0.0.0-dev` in `Directory.Build.props`) into `AppServices.Version`, which the log and the Settings page show.
 
 Artifacts, all from one self-contained single-file publish per OS: `.deb`, `.rpm` and Arch `.pkg.tar.zst` from `packaging/nfpm.yaml` (nfpm), an AppImage from `packaging/linux/` (appimagetool), an Inno Setup installer from `packaging/windows/setup.iss` on a Windows runner, and the AUR `steamrip-desktop-bin` package (template `packaging/aur/PKGBUILD`), which repacks the released `.deb` so every distro gets the same binary. No tarballs or zips. Decision and reasons in `docs/decisions.md` D13.
 
-Rules: a change to what gets installed (binary name, icon, `.desktop`, autostart path) must be made in `packaging/` and verified with `make package` plus one run of the AppImage against the throwaway profile; `Autostart.ExecutablePath` honours `$APPIMAGE`. The AUR job needs the `AUR_SSH_PRIVATE_KEY`, `AUR_USERNAME` and `AUR_EMAIL` repository secrets and skips quietly without them. Nothing is code-signed.
+Rules: a change to what gets installed (binary name, icon, `.desktop`, autostart path) must be made in `packaging/` and verified with `make package` plus one run of the AppImage against the throwaway profile; `Autostart.ExecutablePath` honours `$APPIMAGE`. The AUR job needs the `AUR_SSH_PRIVATE_KEY`, `AUR_USERNAME` and `AUR_EMAIL` repository secrets and skips quietly without them. Nothing is code-signed. Actions are pinned to commit SHAs with a `# vX.Y.Z` comment; Dependabot bumps them monthly.
 
 ## When you finish
 

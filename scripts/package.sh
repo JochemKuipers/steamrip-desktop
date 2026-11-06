@@ -4,7 +4,7 @@
 #                                         dist/steamrip-desktop-<v>-1.x86_64.rpm
 #                                         dist/steamrip-desktop-<v>-1-x86_64.pkg.tar.zst   (Arch; the AUR -bin package repacks the .deb)
 #                                         dist/steamrip-desktop-<v>-x86_64.AppImage
-#   VERSION=1.2.3 scripts/package.sh    → override the version (default: nearest v* tag, else 0.0.0-dev)
+#   VERSION=2026.11.6 scripts/package.sh → override the version (default: nearest v* tag, else 0.0.0-dev)
 # deb/rpm/arch come from packaging/nfpm.yaml via nfpm; the AppImage from packaging/linux/* via appimagetool.
 # Both tools are downloaded (pinned) into obj/tools/ when not on PATH, so this runs the same locally and in CI.
 # The Windows installer is built by scripts/package-windows.ps1 (needs Windows + Inno Setup).
@@ -19,6 +19,9 @@ nfpm_version=2.48.0
 version="${VERSION:-$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null | sed 's/^v//')}"
 version="${version:-0.0.0-dev}"
 export VERSION="$version"
+export VERSION_BASE="${version%%-*}"          # 2026.11.6
+VERSION_PRE="${version#"$VERSION_BASE"}"       # "" or "-rc1"
+export VERSION_PRE="${VERSION_PRE#-}"           # "" or "rc1"
 
 fetch() { # url dest
   [ -x "$2" ] && return

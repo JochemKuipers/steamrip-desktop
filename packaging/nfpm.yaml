@@ -3,8 +3,11 @@
 name: steamrip-desktop
 arch: amd64
 platform: linux
-version: ${VERSION}
-version_schema: semver
+# Calendar version (2026.11.6, 2026.11.6.1); not semver, so nfpm takes it verbatim and scripts/package.sh splits
+# off a -rc1 style suffix into `prerelease` (deb/rpm render it as ~rc1 so it sorts below the final release).
+version: ${VERSION_BASE}
+prerelease: ${VERSION_PRE}
+version_schema: none
 release: "1"
 section: games
 priority: optional
