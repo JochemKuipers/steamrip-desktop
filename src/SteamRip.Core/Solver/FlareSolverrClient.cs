@@ -25,17 +25,28 @@ public sealed class FlareSolverrClient(
 
     public string BaseUrl => baseUrl().TrimEnd('/');
 
-    public async Task<bool> IsHealthyAsync(CancellationToken ct = default)
+    /// <summary>Normalises user input: adds http:// when missing, strips trailing slashes.</summary>
+    public static string NormalizeUrl(string input)
     {
+        var u = input.Trim().TrimEnd('/');
+        if (u.Length > 0 && !u.Contains("://", StringComparison.Ordinal))
+            u = "http://" + u;
+        return u;
+    }
+
+    /// <summary>GET / with a 5 s budget. Pass <paramref name="url"/> to probe an address other than the configured one.</summary>
+    public async Task<bool> IsHealthyAsync(string? url = null, CancellationToken ct = default)
+    {
+        var target = url is null ? BaseUrl : NormalizeUrl(url);
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(5));
-            using var r = await http.GetAsync(BaseUrl + "/", cts.Token);
+            using var r = await http.GetAsync(target + "/", cts.Token);
             if (!r.IsSuccessStatusCode)
                 _log.LogWarning(
                     "FlareSolverr health check at {Url}: HTTP {Status}",
-                    BaseUrl,
+                    target,
                     (int)r.StatusCode
                 );
             return r.IsSuccessStatusCode;
@@ -44,7 +55,7 @@ public sealed class FlareSolverrClient(
         {
             _log.LogWarning(
                 "FlareSolverr health check at {Url} failed: {Error}",
-                BaseUrl,
+                target,
                 e.Message
             );
             return false;

@@ -88,7 +88,7 @@ public partial class SettingsViewModel : ObservableObject
         c.LibraryRoot = LibraryRoot.Trim();
         c.DownloadsRoot = DownloadsRoot.Trim();
         c.DefaultProtonPath = DefaultProton?.Path ?? "";
-        c.FlareSolverrUrl = FlareSolverrUrl.Trim().TrimEnd('/');
+        c.FlareSolverrUrl = Core.Solver.FlareSolverrClient.NormalizeUrl(FlareSolverrUrl);
         c.CheckIntervalMinutes = Math.Max(5, CheckIntervalMinutes);
         c.NotifyNewGames = NotifyNewGames;
         c.StartHidden = StartHidden;
@@ -123,14 +123,32 @@ public partial class SettingsViewModel : ObservableObject
             $"Saved {DateTime.Now:HH:mm:ss}. Hoster order and FlareSolverr URL apply to the next job; library paths apply to new installs.";
     }
 
+    /// <summary>Tests the URL as typed (not the saved one) and, when it answers, saves it right away so a working address never needs a second click.</summary>
     [RelayCommand]
     private async Task TestSolver()
     {
-        SolverTest = "Testing…";
-        var ok = await _s.Solver.IsHealthyAsync();
-        SolverTest = ok
-            ? "FlareSolverr answered. Good."
-            : $"No answer from {_s.Solver.BaseUrl}. Is it running, and is the URL right?";
+        var url = Core.Solver.FlareSolverrClient.NormalizeUrl(FlareSolverrUrl);
+        if (url.Length == 0)
+        {
+            SolverTest = "Enter a URL first, e.g. http://192.168.1.10:8191";
+            return;
+        }
+        FlareSolverrUrl = url;
+        SolverTest = $"Testing {url}…";
+        var ok = await _s.Solver.IsHealthyAsync(url);
+        if (ok)
+        {
+            var changed = _s.Settings.FlareSolverrUrl != url;
+            if (changed)
+            {
+                _s.Settings.FlareSolverrUrl = url;
+                _s.Settings.Save();
+                _s.Log.LogInformation("FlareSolverr URL set to {Url} (test passed)", url);
+            }
+            SolverTest = changed ? $"{url} answered. Saved." : $"{url} answered. Good.";
+        }
+        else
+            SolverTest = $"No answer from {url} within 5 s. Is it running, is the port right, and does the firewall allow it?";
     }
 
     [RelayCommand]

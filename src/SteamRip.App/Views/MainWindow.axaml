@@ -557,7 +557,8 @@
                   Margin="6,0,0,0"
                 />
                 <TextBox
-                  Text="{Binding FlareSolverrUrl}"
+                  Text="{Binding FlareSolverrUrl, UpdateSourceTrigger=PropertyChanged}"
+                  Watermark="http://192.168.1.10:8191"
                   FontFamily="{StaticResource Mono}"
                   FontSize="12"
                 />
