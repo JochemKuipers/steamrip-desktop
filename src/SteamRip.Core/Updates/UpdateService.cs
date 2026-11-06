@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SteamRip.Core.Catalog;
 using SteamRip.Core.Data;
 using SteamRip.Core.Downloads;
@@ -21,15 +23,17 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly Downloader _downloader;
     private readonly Installer _installer;
     private readonly INotifier _notifier;
+    private readonly ILogger _log;
     private readonly ConcurrentQueue<Job> _queue = new();
     private readonly SemaphoreSlim _wake = new(0);
     private readonly CancellationTokenSource _cts = new();
     private readonly List<Job> _jobs = [];
     private Task? _worker, _scheduler;
 
-    public UpdateService(Database db, Settings settings, CatalogClient catalog, ResolverChain resolvers, Downloader downloader, Installer installer, INotifier notifier)
+    public UpdateService(Database db, Settings settings, CatalogClient catalog, ResolverChain resolvers, Downloader downloader, Installer installer, INotifier notifier, ILogger<UpdateService>? logger = null)
     {
         _db = db; _settings = settings; _catalog = catalog; _resolvers = resolvers; _downloader = downloader; _installer = installer; _notifier = notifier;
+        _log = logger ?? NullLogger<UpdateService>.Instance;
     }
 
     public IReadOnlyList<Job> Jobs { get { lock (_jobs) return _jobs.ToList(); } }
@@ -40,10 +44,11 @@ public sealed class UpdateService : IAsyncDisposable
 
     public event Action? JobsChanged;
     public event Action? SyncChanged;
-    public event Action<string>? Log;
 
     public void Start()
     {
+        _log.LogInformation("UpdateService starting: library {Library}, downloads {Downloads}, interval {Interval} min, auto-updates {Paused}, FlareSolverr {Solver}",
+            _settings.LibraryRoot, _settings.DownloadsRoot, _settings.CheckIntervalMinutes, _settings.AutoUpdatesPaused ? "paused" : "on", _settings.FlareSolverrUrl);
         _worker ??= Task.Run(WorkerLoopAsync);
         _scheduler ??= Task.Run(SchedulerLoopAsync);
     }
@@ -52,7 +57,7 @@ public sealed class UpdateService : IAsyncDisposable
 
     public async Task<int> SyncCatalogAsync(bool full = false, CancellationToken ct = default)
     {
-        if (Syncing) return 0;
+        if (Syncing) { _log.LogDebug("Sync requested while already syncing; ignored"); return 0; }
         Syncing = true; SyncChanged?.Invoke();
         try
         {
@@ -74,7 +79,7 @@ public sealed class UpdateService : IAsyncDisposable
             LastSyncUtc = DateTime.UtcNow;
             LastSyncStatus = $"{count} changed post(s), {_db.PostCount()} total";
             _db.LogEvent("sync", LastSyncStatus);
-            Emit($"Catalog sync: {LastSyncStatus}");
+            _log.LogInformation("Catalog sync finished: {Status}; {New} new post(s)", LastSyncStatus, newPosts.Count);
 
             if (_settings.NotifyNewGames && since is not null && newPosts.Count > 0)
                 await _notifier.NotifyAsync("New on SteamRIP", string.Join("\n", newPosts.Take(5).Select(p => p.Name)) + (newPosts.Count > 5 ? $"\n…and {newPosts.Count - 5} more" : ""));
@@ -87,7 +92,7 @@ public sealed class UpdateService : IAsyncDisposable
         {
             LastSyncStatus = "Sync failed: " + e.Message;
             _db.LogEvent("sync-error", e.Message);
-            Emit(LastSyncStatus);
+            _log.LogError(e, "Catalog sync failed");
             return 0;
         }
         finally { Syncing = false; SyncChanged?.Invoke(); }
@@ -103,6 +108,7 @@ public sealed class UpdateService : IAsyncDisposable
             var post = _db.GetPost(g.PostId);
             if (post is null || !UpdateDetector.IsUpdate(g, post)) continue;
             pending.Add((g, post));
+            _log.LogInformation("Update available for {Name}: {Installed} → {Site} (auto-update {Auto}, paused {Paused})", g.Name, g.InstalledVersion, post.VersionKey, g.AutoUpdate, _settings.AutoUpdatesPaused);
             if (g.AutoUpdate && !_settings.AutoUpdatesPaused) Enqueue(post, isUpdate: true);
         }
         return pending;
@@ -120,6 +126,7 @@ public sealed class UpdateService : IAsyncDisposable
             var job = new Job(post, isUpdate) { PreResolved = preResolved };
             _jobs.Add(job);
             _queue.Enqueue(job);
+            _log.LogInformation("Queued {Kind} of {Name} [{Version}]{Pre}", isUpdate ? "update" : "install", post.Name, post.VersionKey, preResolved is null ? "" : " with a pre-resolved link");
             var g = _db.GetInstall(post.Id);
             _db.UpsertInstall(g is null
                 ? new InstalledGame(post.Id, post.Slug, post.Name, null, Path.Combine(_settings.LibraryRoot, post.Slug), DateTime.UtcNow, true, InstallState.Queued, null)
@@ -132,6 +139,7 @@ public sealed class UpdateService : IAsyncDisposable
 
     public void Cancel(Job job)
     {
+        _log.LogInformation("Cancel requested for {Name} (stage {Stage})", job.Post.Name, job.Stage);
         job.Cts.Cancel();
         if (job.Stage == JobStage.Queued)
         {
@@ -151,6 +159,7 @@ public sealed class UpdateService : IAsyncDisposable
     {
         var g = _db.GetInstall(postId);
         if (g is null) return;
+        _log.LogInformation("Uninstall {Name}: {Path} (delete files: {Delete})", g.Name, g.InstallPath, deleteFiles);
         if (deleteFiles && Directory.Exists(g.InstallPath)) Directory.Delete(g.InstallPath, true);
         _db.RemoveInstall(postId);
         _db.LogEvent("uninstall", g.Name, postId);
@@ -178,6 +187,8 @@ public sealed class UpdateService : IAsyncDisposable
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, job.Cts.Token);
         var ct = linked.Token;
         var previous = _db.GetInstall(post.Id);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        _log.LogInformation("=== Job start: {Kind} {Name} [{Version}] (post {Id})", job.IsUpdate ? "update" : "install", post.Name, post.VersionKey, post.Id);
         try
         {
             // Refresh the post so we use the latest mirrors.
@@ -197,11 +208,13 @@ public sealed class UpdateService : IAsyncDisposable
             var what = job.IsUpdate ? $"Updated to {post.VersionKey}" : $"Installed {post.VersionKey}";
             _db.LogEvent(job.IsUpdate ? "update" : "install", $"{post.Name}: {what}" + (result.BackupPath is not null ? $" (saves backed up to {result.BackupPath})" : ""), post.Id);
             job.Set(JobStage.Done, what, 1);
+            _log.LogInformation("=== Job done: {Name} {What} in {Seconds:0.0}s → {Path}", post.Name, what, sw.Elapsed.TotalSeconds, result.InstallPath);
             await _notifier.NotifyAsync(post.Name, what + (result.BackedUpSaves.Count > 0 ? $" — {result.BackedUpSaves.Count} save folder(s) backed up" : ""));
         }
         catch (OperationCanceledException) when (job.Cts.IsCancellationRequested)
         {
             job.Set(JobStage.Cancelled, "Cancelled");
+            _log.LogInformation("=== Job cancelled: {Name} after {Seconds:0.0}s", post.Name, sw.Elapsed.TotalSeconds);
             RestoreStateAfterFailure(post.Id, null, previous);
         }
         catch (NeedsAttentionException e)
@@ -209,6 +222,7 @@ public sealed class UpdateService : IAsyncDisposable
             job.Set(JobStage.NeedsAttention, e.Message, error: e.Message);
             _db.SetInstallState(post.Id, InstallState.NeedsAttention, e.Message);
             _db.LogEvent("attention", $"{post.Name}: {e.Message}", post.Id);
+            _log.LogWarning("=== Job needs attention: {Name}: {Message}", post.Name, e.Message);
             await _notifier.NotifyAsync(post.Name + " needs you", e.Message);
         }
         catch (Exception e)
@@ -216,6 +230,7 @@ public sealed class UpdateService : IAsyncDisposable
             job.Set(JobStage.Failed, e.Message, error: e.ToString());
             RestoreStateAfterFailure(post.Id, e.Message, previous);
             _db.LogEvent("error", $"{post.Name}: {e.Message}", post.Id);
+            _log.LogError(e, "=== Job failed: {Name} after {Seconds:0.0}s", post.Name, sw.Elapsed.TotalSeconds);
             await _notifier.NotifyAsync(post.Name + " failed", e.Message);
         }
     }
@@ -223,6 +238,13 @@ public sealed class UpdateService : IAsyncDisposable
     private async Task<string> DownloadWithRetryAsync(Job job, CatalogPost post, CancellationToken ct)
     {
         Directory.CreateDirectory(_settings.DownloadsRoot);
+        // A complete, verified archive from an interrupted install can be reused without resolving a link again.
+        var slugDir = Path.Combine(_settings.DownloadsRoot, post.Slug);
+        if (Directory.Exists(slugDir) && Directory.EnumerateFiles(slugDir).FirstOrDefault(f => !f.EndsWith(".part", StringComparison.OrdinalIgnoreCase)) is { } existing)
+        {
+            _log.LogInformation("Reusing already-verified archive {Dest}", existing);
+            return existing;
+        }
         var attempts = 0;
         while (true)
         {
@@ -231,40 +253,38 @@ public sealed class UpdateService : IAsyncDisposable
             _db.SetInstallState(post.Id, InstallState.Downloading);
             ResolvedDownload? resolved; IReadOnlyList<string> errors = [];
             if (attempts == 1 && job.PreResolved is not null) resolved = job.PreResolved;
-            else (resolved, errors) = await _resolvers.ResolveAsync(post.Mirrors, Emit, ct);
+            else (resolved, errors) = await _resolvers.ResolveAsync(post.Mirrors, ct);
             if (resolved is null)
                 throw new NeedsAttentionException("No mirror could be resolved:\n" + string.Join("\n", errors));
 
             var fileName = Installer.SafeName(resolved.FileName ?? post.Slug + ".rar");
             if (!Path.HasExtension(fileName)) fileName += ".rar";
-            var dest = Path.Combine(_settings.DownloadsRoot, post.Slug, fileName);
-            if (File.Exists(dest)) return dest; // verified file from an interrupted install
+            var dest = Path.Combine(slugDir, fileName);
 
             CheckDiskSpace(resolved.Size, _settings.DownloadsRoot, _settings.LibraryRoot);
             job.Set(JobStage.Downloading, $"Downloading from {resolved.Host}…", 0);
-            Emit($"{post.Name}: downloading from {resolved.Host} → {dest}");
             try
             {
                 return await _downloader.DownloadAsync(resolved, dest, new Progress<DownloadProgress>(job.Progress), ct);
             }
             catch (DownloadException e) when (e.RetryResolve && attempts < 3)
             {
-                Emit($"{post.Name}: {e.Message}; re-resolving");
+                _log.LogWarning("{Name}: {Error}; re-resolving (attempt {Attempt}/3)", post.Name, e.Message, attempts + 1);
             }
             catch (HttpRequestException e) when (attempts < 3)
             {
-                Emit($"{post.Name}: network error ({e.Message}); retrying in 15 s");
+                _log.LogWarning(e, "{Name}: network error; retrying in 15 s (attempt {Attempt}/3)", post.Name, attempts + 1);
                 await Task.Delay(TimeSpan.FromSeconds(15), ct);
             }
             catch (IOException e) when (attempts < 3)
             {
-                Emit($"{post.Name}: I/O error ({e.Message}); retrying in 15 s");
+                _log.LogWarning(e, "{Name}: I/O error; retrying in 15 s (attempt {Attempt}/3)", post.Name, attempts + 1);
                 await Task.Delay(TimeSpan.FromSeconds(15), ct);
             }
         }
     }
 
-    private static void CheckDiskSpace(long? archiveSize, string downloadsRoot, string libraryRoot)
+    private void CheckDiskSpace(long? archiveSize, string downloadsRoot, string libraryRoot)
     {
         if (archiveSize is not { } size) return;
         Directory.CreateDirectory(downloadsRoot); Directory.CreateDirectory(libraryRoot);
@@ -272,6 +292,7 @@ public sealed class UpdateService : IAsyncDisposable
         var lib = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(libraryRoot))!);
         // archive + extracted (~1.3x) if same drive; be conservative.
         var need = dl.Name == lib.Name ? (long)(size * 2.4) : size;
+        _log.LogDebug("Disk check: need ~{Need} on {Drive}, free {Free}", Job.Fmt(need), dl.Name, Job.Fmt(dl.AvailableFreeSpace));
         if (dl.AvailableFreeSpace < need)
             throw new NeedsAttentionException($"Not enough disk space: need ~{Job.Fmt(need)}, have {Job.Fmt(dl.AvailableFreeSpace)} on {dl.Name}");
     }
@@ -294,15 +315,15 @@ public sealed class UpdateService : IAsyncDisposable
         try { await Task.Delay(TimeSpan.FromSeconds(5), _cts.Token); } catch { return; }
         while (!_cts.IsCancellationRequested)
         {
-            try { await SyncCatalogAsync(ct: _cts.Token); } catch (OperationCanceledException) { break; } catch (Exception e) { Emit("Scheduler: " + e.Message); }
+            try { await SyncCatalogAsync(ct: _cts.Token); } catch (OperationCanceledException) { break; } catch (Exception e) { _log.LogError(e, "Scheduler tick failed"); }
+            _log.LogDebug("Next catalog check in {Minutes} min", Math.Max(5, _settings.CheckIntervalMinutes));
             try { await Task.Delay(TimeSpan.FromMinutes(Math.Max(5, _settings.CheckIntervalMinutes)), _cts.Token); } catch { break; }
         }
     }
 
-    private void Emit(string msg) => Log?.Invoke(msg);
-
     public async ValueTask DisposeAsync()
     {
+        _log.LogInformation("UpdateService stopping");
         _cts.Cancel();
         foreach (var j in Jobs) j.Cts.Cancel();
         if (_worker is not null) try { await _worker; } catch { }

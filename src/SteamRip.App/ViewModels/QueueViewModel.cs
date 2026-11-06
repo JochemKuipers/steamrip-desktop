@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
+using Microsoft.Extensions.Logging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SteamRip.Core.Updates;
@@ -40,10 +41,11 @@ public partial class QueueViewModel : ObservableObject
 
     public async Task SolveInBrowserAsync(JobItem item)
     {
+        _s.Log.LogInformation("User requested browser solve for {Name}", item.Job.Post.Name);
         item.SetBusy("Opening browser… pass the check in the window that appears.");
         try
         {
-            var resolved = await ManualSolve.ViaBrowserAsync(item.Job.Post);
+            var resolved = await ManualSolve.ViaBrowserAsync(item.Job.Post, _s.Loggers);
             _s.Updates.Enqueue(item.Job.Post, item.Job.IsUpdate, resolved);
         }
         catch (Exception e) { item.SetBusy("Browser fallback failed: " + e.Message); }

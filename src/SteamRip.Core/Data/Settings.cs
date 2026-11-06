@@ -17,6 +17,7 @@ public sealed class Settings
     public bool Autostart { get; set; }
     public bool DeleteArchiveAfterInstall { get; set; } = true;
     public int KeepBackups { get; set; } = 2;
+    public bool VerboseLogging { get; set; }
     public List<string> HosterOrder { get; set; } = ["FileDitch", "GoFile", "MegaDb", "BuzzHeavier"];
 
     public static string DefaultDir => Path.Combine(
@@ -26,6 +27,7 @@ public sealed class Settings
 
     public static string DefaultPath => Path.Combine(DefaultDir, "settings.json");
     public static string DefaultDbPath => Path.Combine(DefaultDir, "steamrip.db");
+    public static string DefaultLogDir => Path.Combine(DefaultDir, "logs");
 
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.Never };
 

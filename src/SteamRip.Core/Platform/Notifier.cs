@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SteamRip.Core.Platform;
 
@@ -8,10 +10,13 @@ public interface INotifier
 }
 
 /// <summary>Linux: org.freedesktop.Notifications via gdbus/notify-send. Windows: PowerShell toast (no WinRT dependency). Fallback: no-op.</summary>
-public sealed class Notifier : INotifier
+public sealed class Notifier(ILogger<Notifier>? logger = null) : INotifier
 {
+    private readonly ILogger _log = logger ?? NullLogger<Notifier>.Instance;
+
     public async Task NotifyAsync(string title, string body)
     {
+        _log.LogInformation("Notify: {Title} — {Body}", title, body.Replace('\n', ' '));
         try
         {
             if (OperatingSystem.IsLinux())
@@ -33,7 +38,7 @@ public sealed class Notifier : INotifier
                 await RunAsync("powershell", "-NoProfile", "-NonInteractive", "-Command", script);
             }
         }
-        catch { /* notifications are best-effort */ }
+        catch (Exception e) { _log.LogWarning(e, "Notification failed"); }
     }
 
     private static string Esc(string s) => s.Replace("'", "''");

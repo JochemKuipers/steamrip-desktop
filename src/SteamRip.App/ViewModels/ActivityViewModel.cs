@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace SteamRip.App.ViewModels;
 
@@ -9,15 +10,18 @@ public partial class ActivityViewModel : ObservableObject
     private readonly AppServices _s;
     public ObservableCollection<ActivityLine> Events { get; } = [];
     public ObservableCollection<string> Live { get; } = [];
+    public string LogDir { get; private set; } = "";
+    [RelayCommand] private void OpenLogDir() => LibraryViewModel.OpenPath(LogDir);
 
     public ActivityViewModel(AppServices s)
     {
         _s = s;
-        s.Updates.Log += msg => Dispatcher.UIThread.Post(() =>
+        s.LogFile.LineWritten += line => Dispatcher.UIThread.Post(() =>
         {
-            Live.Insert(0, $"{DateTime.Now:HH:mm:ss}  {msg}");
-            while (Live.Count > 200) Live.RemoveAt(Live.Count - 1);
+            Live.Insert(0, line);
+            while (Live.Count > 300) Live.RemoveAt(Live.Count - 1);
         });
+        LogDir = Core.Data.Settings.DefaultLogDir;
         s.Updates.JobsChanged += () => Dispatcher.UIThread.Post(Refresh);
         Refresh();
     }

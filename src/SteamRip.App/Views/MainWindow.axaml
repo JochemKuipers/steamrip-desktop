@@ -181,7 +181,13 @@
             </ItemsControl>
           </ScrollViewer>
         </Border>
-        <TextBlock Grid.Row="2" Classes="eyebrow" Text="LIVE LOG (THIS SESSION)" Margin="0,16,0,8" />
+        <DockPanel Grid.Row="2" Margin="0,16,0,8">
+          <Button DockPanel.Dock="Right" Classes="quiet" Content="Open log folder" Command="{Binding OpenLogDirCommand}" Padding="10,4" FontSize="12" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="eyebrow" Text="LOG (THIS SESSION)" />
+            <TextBlock Classes="mono muted" FontSize="11" Text="{Binding LogDir}" />
+          </StackPanel>
+        </DockPanel>
         <Border Grid.Row="3" Classes="card" Padding="0">
           <ScrollViewer>
             <ItemsControl ItemsSource="{Binding Live}" Margin="12,8">
@@ -257,6 +263,11 @@
                 <Button DockPanel.Dock="Right" Classes="quiet" Content="Open" Command="{Binding OpenConfigDirCommand}" />
                 <TextBlock Classes="mono muted" Text="{Binding ConfigDir}" VerticalAlignment="Center" />
               </DockPanel>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="quiet" Content="Open" Command="{Binding OpenLogDirCommand}" />
+                <TextBlock Classes="mono muted" Text="{Binding LogDir}" VerticalAlignment="Center" />
+              </DockPanel>
+              <ToggleSwitch IsChecked="{Binding VerboseLogging}" OnContent="Verbose log (HTTP status codes, solver steps, page sizes)" OffContent="Normal log (resolve, download, install, errors)" />
             </StackPanel>
           </Border>
 
