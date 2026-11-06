@@ -89,7 +89,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task SyncNow() => _s.Updates.SyncCatalogAsync();
+    private async Task SyncNow() => await _s.Updates.SyncCatalogAsync();
 
     private void RefreshSync()
     {

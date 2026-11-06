@@ -128,7 +128,7 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         s.Db.UpsertInstall(
             item.Game with
             {
-                ProtonPath = string.IsNullOrEmpty(p?.Path) ? null : p!.Path,
+                ProtonPath = string.IsNullOrEmpty(p?.Path) ? null : p.Path,
             }
         );
         s.Log.LogInformation("{Name}: Proton set to {Proton}", item.Name, p?.Name ?? "default");
@@ -251,10 +251,12 @@ public sealed partial class LibraryItem : ObservableObject
     private async Task LoadCoverAsync()
     {
         var bmp = await _owner.Covers.GetAsync(_post?.SteamAppId);
-        if (bmp is null) return;
+        if (bmp is null)
+            return;
         _cover = bmp;
         OnPropertyChanged(nameof(Cover));
     }
+
     public string Name => _game.Name;
     public string InstalledVersion => _game.InstalledVersion ?? "—";
     public string SiteVersion => UpdateDetector.Normalize(_post?.VersionKey) ?? "—";

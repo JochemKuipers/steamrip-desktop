@@ -10,7 +10,7 @@ public partial class ActivityViewModel : ObservableObject
     private readonly AppServices _s;
     public ObservableCollection<ActivityLine> Events { get; } = [];
     public ObservableCollection<string> Live { get; } = [];
-    public string LogDir { get; private set; } = "";
+    public string LogDir { get; private set; }
 
     [RelayCommand]
     private void OpenLogDir() => LibraryViewModel.OpenPath(LogDir);
@@ -33,7 +33,7 @@ public partial class ActivityViewModel : ObservableObject
     public void Refresh()
     {
         Events.Clear();
-        foreach (var (at, kind, message) in _s.Db.RecentEvents(100))
+        foreach (var (at, kind, message) in _s.Db.RecentEvents())
             Events.Add(
                 new ActivityLine(at.ToLocalTime().ToString("yyyy-MM-dd HH:mm"), kind, message)
             );

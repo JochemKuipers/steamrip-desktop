@@ -1,177 +1,177 @@
 <Styles
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 >
-  <Style Selector="Window">
-    <Setter Property="Background" Value="{StaticResource Ink}" />
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-    <Setter Property="FontSize" Value="13" />
-  </Style>
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{StaticResource Ink}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
 
-  <Style Selector="TextBlock">
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
-  <Style Selector="TextBlock.muted">
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-  </Style>
-  <Style Selector="TextBlock.mono">
-    <Setter Property="FontFamily" Value="{StaticResource Mono}" />
-    <Setter Property="FontSize" Value="12" />
-  </Style>
-  <Style Selector="TextBlock.amber">
-    <Setter Property="Foreground" Value="{StaticResource Amber}" />
-  </Style>
-  <Style Selector="TextBlock.green">
-    <Setter Property="Foreground" Value="{StaticResource Green}" />
-  </Style>
-  <Style Selector="TextBlock.red">
-    <Setter Property="Foreground" Value="{StaticResource Red}" />
-  </Style>
-  <Style Selector="TextBlock.h1">
-    <Setter Property="FontSize" Value="22" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="-0.3" />
-  </Style>
-  <Style Selector="TextBlock.eyebrow">
-    <Setter Property="FontSize" Value="11" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="LetterSpacing" Value="1.2" />
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-  </Style>
+    <Style Selector="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.amber">
+        <Setter Property="Foreground" Value="{StaticResource Amber}" />
+    </Style>
+    <Style Selector="TextBlock.green">
+        <Setter Property="Foreground" Value="{StaticResource Green}" />
+    </Style>
+    <Style Selector="TextBlock.red">
+        <Setter Property="Foreground" Value="{StaticResource Red}" />
+    </Style>
+    <Style Selector="TextBlock.h1">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LetterSpacing" Value="-0.3" />
+    </Style>
+    <Style Selector="TextBlock.eyebrow">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LetterSpacing" Value="1.2" />
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
 
-  <!-- Nav rail -->
-  <Style Selector="Button.nav">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Left" />
-    <Setter Property="Padding" Value="14,9" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="FontWeight" Value="Medium" />
-  </Style>
-  <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{StaticResource Panel}" />
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
-  <Style Selector="Button.nav.active /template/ ContentPresenter">
-    <Setter Property="Background" Value="{StaticResource Raised}" />
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
-  <Style Selector="Button.nav TextBlock">
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-  </Style>
-  <Style Selector="Button.nav:pointerover TextBlock, Button.nav.active TextBlock">
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
+    <!-- Nav rail -->
+    <Style Selector="Button.nav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Padding" Value="14,9" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="FontWeight" Value="Medium" />
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource Panel}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="Button.nav.active /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource Raised}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="Button.nav TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    </Style>
+    <Style Selector="Button.nav:pointerover TextBlock, Button.nav.active TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
 
-  <!-- Cards -->
-  <Style Selector="Border.cover">
-    <Setter Property="Background" Value="{StaticResource Line}" />
-    <Setter Property="CornerRadius" Value="4" />
-    <Setter Property="ClipToBounds" Value="True" />
-    <Setter Property="VerticalAlignment" Value="Top" />
-  </Style>
-  <Style Selector="TextBlock.coverInitial">
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-    <Setter Property="FontSize" Value="26" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-    <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-  </Style>
+    <!-- Cards -->
+    <Style Selector="Border.cover">
+        <Setter Property="Background" Value="{StaticResource Line}" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="TextBlock.coverInitial">
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
 
-  <Style Selector="Border.card">
-    <Setter Property="Background" Value="{StaticResource Panel}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="16,12" />
-  </Style>
-  <Style Selector="Border.pill">
-    <Setter Property="Background" Value="{StaticResource Raised}" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="8,2" />
-    <Setter Property="VerticalAlignment" Value="Center" />
-  </Style>
-  <Style Selector="Border.pill.amber">
-    <Setter Property="Background" Value="{StaticResource Amber}" />
-  </Style>
-  <Style Selector="Border.pill.amber TextBlock">
-    <Setter Property="Foreground" Value="{StaticResource Ink}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{StaticResource Panel}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+    <Style Selector="Border.pill">
+        <Setter Property="Background" Value="{StaticResource Raised}" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.pill.amber">
+        <Setter Property="Background" Value="{StaticResource Amber}" />
+    </Style>
+    <Style Selector="Border.pill.amber TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
 
-  <!-- Buttons -->
-  <Style Selector="Button">
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="12,6" />
-  </Style>
-  <Style Selector="Button.primary">
-    <Setter Property="Background" Value="{StaticResource Amber}" />
-    <Setter Property="Foreground" Value="{StaticResource Ink}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="#FFC866" />
-    <Setter Property="Foreground" Value="{StaticResource Ink}" />
-  </Style>
-  <Style Selector="Button.quiet">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{StaticResource Muted}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
-  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{StaticResource Raised}" />
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
-  <Style Selector="Button.danger">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{StaticResource Red}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-    <Setter Property="BorderThickness" Value="1" />
-  </Style>
+    <!-- Buttons -->
+    <Style Selector="Button">
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="12,6" />
+    </Style>
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{StaticResource Amber}" />
+        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#FFC866" />
+        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+    </Style>
+    <Style Selector="Button.quiet">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.quiet:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource Raised}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="Button.danger">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Red}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
 
-  <Style Selector="ProgressBar">
-    <Setter Property="Foreground" Value="{StaticResource Amber}" />
-    <Setter Property="Background" Value="{StaticResource Raised}" />
-    <Setter Property="MinHeight" Value="4" />
-    <Setter Property="Height" Value="4" />
-    <Setter Property="CornerRadius" Value="2" />
-  </Style>
+    <Style Selector="ProgressBar">
+        <Setter Property="Foreground" Value="{StaticResource Amber}" />
+        <Setter Property="Background" Value="{StaticResource Raised}" />
+        <Setter Property="MinHeight" Value="4" />
+        <Setter Property="Height" Value="4" />
+        <Setter Property="CornerRadius" Value="2" />
+    </Style>
 
-  <Style Selector="TextBox">
-    <Setter Property="Background" Value="{StaticResource Panel}" />
-    <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-    <Setter Property="CornerRadius" Value="6" />
-  </Style>
-  <!-- Menus: compact rows, rounded hover, a thin line as separator. -->
-  <Style Selector="MenuFlyoutPresenter">
-    <Setter Property="MinWidth" Value="220" />
-    <Setter Property="CornerRadius" Value="8" />
-  </Style>
-  <Style Selector="MenuItem">
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="CornerRadius" Value="5" />
-    <Setter Property="Margin" Value="2,1" />
-    <Setter Property="MinHeight" Value="0" />
-  </Style>
-  <Style Selector="MenuItem.danger">
-    <Setter Property="Foreground" Value="{StaticResource Red}" />
-  </Style>
-  <Style Selector="MenuFlyoutPresenter Separator">
-    <Setter Property="Background" Value="{StaticResource Line}" />
-    <Setter Property="Height" Value="1" />
-    <Setter Property="Margin" Value="8,4" />
-  </Style>
-  <Style Selector="FlyoutPresenter">
-    <Setter Property="CornerRadius" Value="8" />
-    <Setter Property="Padding" Value="14" />
-  </Style>
-  <Style Selector="ToggleSwitch">
-    <Setter Property="Foreground" Value="{StaticResource Text}" />
-  </Style>
-  <Style Selector="Ellipse.dot">
-    <Setter Property="Width" Value="8" />
-    <Setter Property="Height" Value="8" />
-  </Style>
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{StaticResource Panel}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <!-- Menus: compact rows, rounded hover, a thin line as separator. -->
+    <Style Selector="MenuFlyoutPresenter">
+        <Setter Property="MinWidth" Value="220" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="MenuItem">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="Margin" Value="2,1" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="MenuItem.danger">
+        <Setter Property="Foreground" Value="{StaticResource Red}" />
+    </Style>
+    <Style Selector="MenuFlyoutPresenter Separator">
+        <Setter Property="Background" Value="{StaticResource Line}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="8,4" />
+    </Style>
+    <Style Selector="FlyoutPresenter">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14" />
+    </Style>
+    <Style Selector="ToggleSwitch">
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+    </Style>
+    <Style Selector="Ellipse.dot">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+    </Style>
 </Styles>

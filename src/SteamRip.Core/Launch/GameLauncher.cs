@@ -174,8 +174,7 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         return Task.FromResult(running);
     }
 
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<long, byte> _stopped =
-        new();
+    private readonly ConcurrentDictionary<long, byte> _stopped = new();
 
     public void Stop(long postId)
     {

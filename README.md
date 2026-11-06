@@ -31,10 +31,14 @@ GoFile and MegaDB mirrors work without FlareSolverr. If no solver is reachable, 
 ## Build and run
 
 ```sh
-dotnet build
+dotnet tool restore                       # CSharpier + ReSharper CLI
+git config core.hooksPath .githooks       # optional: format on commit, full gate on push
+dotnet build                              # analyzers on, warnings are errors
 dotnet test
 dotnet run --project src/SteamRip.App -- --show --verbose
 ```
+
+Code is formatted by CSharpier (`dotnet csharpier format .`), checked by Roslyn analyzers at build and by ReSharper (`scripts/inspect.sh`); `.editorconfig` holds the shared style and severities. See `AGENTS.md` for the details.
 
 Flags: `--show` (open the window even if "start hidden" is on), `--hidden`, `--verbose` (debug-level log).
 

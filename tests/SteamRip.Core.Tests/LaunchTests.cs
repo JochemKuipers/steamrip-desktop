@@ -13,6 +13,7 @@ public class LaunchTests : IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         try
         {
             Directory.Delete(_root, true);

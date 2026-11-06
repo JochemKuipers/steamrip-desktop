@@ -15,6 +15,7 @@ public class InstallerTests : IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         try
         {
             Directory.Delete(_root, true);
@@ -22,7 +23,7 @@ public class InstallerTests : IDisposable
         catch { }
     }
 
-    private static bool Has7z => new ArchiveTool().SevenZipPath is not null;
+    private static bool HasSevenZip => new ArchiveTool().SevenZipPath is not null;
 
     /// <summary>Builds a .zip (7z format-agnostic) that looks like a SteamRIP release: one game folder + _CommonRedist.</summary>
     private string MakeArchive(string version)
@@ -51,7 +52,7 @@ public class InstallerTests : IDisposable
     [SkippableFact]
     public async Task Fresh_install_collapses_single_dir_and_moves_redist_inside()
     {
-        Skip.IfNot(Has7z, "7z not installed");
+        Skip.IfNot(HasSevenZip, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
         var result = await inst.InstallAsync(
@@ -74,7 +75,7 @@ public class InstallerTests : IDisposable
     [SkippableFact]
     public async Task Update_backs_up_saves_preserves_wine_prefix_and_prunes_backups()
     {
-        Skip.IfNot(Has7z, "7z not installed");
+        Skip.IfNot(HasSevenZip, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
         var opt = new InstallOptions(lib, KeepBackups: 2);
@@ -170,7 +171,7 @@ public class InstallerTests : IDisposable
     [SkippableFact]
     public async Task Corrupt_archive_fails_before_touching_the_install()
     {
-        Skip.IfNot(Has7z, "7z not installed");
+        Skip.IfNot(HasSevenZip, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
         await inst.InstallAsync(

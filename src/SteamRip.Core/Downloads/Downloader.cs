@@ -64,14 +64,12 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
                 "416 for range {Have}-: assuming the .part file is complete, verifying",
                 have
             );
-            have = new FileInfo(part).Length;
         }
         else
         {
             if (
                 resp.StatusCode
                 is HttpStatusCode.Redirect
-                    or HttpStatusCode.Found
                     or HttpStatusCode.Forbidden
                     or HttpStatusCode.Unauthorized
             )

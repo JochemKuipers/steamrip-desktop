@@ -1,9 +1,9 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/SteamRip.App/SteamRip.App.csproj" />
-    <Project Path="src/SteamRip.Core/SteamRip.Core.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/SteamRip.Core.Tests/SteamRip.Core.Tests.csproj" />
-  </Folder>
+    <Folder Name="/src/">
+        <Project Path="src/SteamRip.App/SteamRip.App.csproj" />
+        <Project Path="src/SteamRip.Core/SteamRip.Core.csproj" />
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/SteamRip.Core.Tests/SteamRip.Core.Tests.csproj" />
+    </Folder>
 </Solution>

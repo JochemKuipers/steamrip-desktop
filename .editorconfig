@@ -1,0 +1,166 @@
+# Style and analyzer configuration. Whitespace/layout is owned by CSharpier (.csharpierrc.yaml);
+# this file carries naming, language preferences and analyzer severities enforced at build time.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json,md,props,targets,csproj,sln,axaml,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Language preferences
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+csharp_prefer_braces = when_multiline:silent
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_readonly_field = true:warning
+dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
+
+# Naming: constants and static readonly fields PascalCase, other private fields _camelCase, interfaces IPascalCase.
+# Rules are matched top-down, so the const/static-readonly rules come first.
+dotnet_naming_rule.constants_pascal.symbols = constants
+dotnet_naming_rule.constants_pascal.style = pascal
+dotnet_naming_rule.constants_pascal.severity = warning
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_accessibilities = *
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_style.pascal.capitalization = pascal_case
+
+dotnet_naming_rule.static_readonly_pascal.symbols = static_readonly_fields
+dotnet_naming_rule.static_readonly_pascal.style = pascal
+dotnet_naming_rule.static_readonly_pascal.severity = warning
+dotnet_naming_symbols.static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.static_readonly_fields.applicable_accessibilities = *
+dotnet_naming_symbols.static_readonly_fields.required_modifiers = static, readonly
+
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+# ReSharper ignores dotnet required_modifiers ordering; scope this rule in its own terms so const/static readonly stay PascalCase
+dotnet_naming_symbols.private_fields.resharper_applicable_kinds = field, readonly_field
+dotnet_naming_symbols.private_fields.resharper_required_modifiers = instance
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_style.underscore_camel.required_prefix = _
+
+dotnet_naming_rule.interfaces_i_prefix.symbols = interfaces
+dotnet_naming_rule.interfaces_i_prefix.style = i_pascal
+dotnet_naming_rule.interfaces_i_prefix.severity = warning
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.i_pascal.capitalization = pascal_case
+dotnet_naming_style.i_pascal.required_prefix = I
+
+# Analyzer severities (the build runs with TreatWarningsAsErrors)
+dotnet_diagnostic.IDE0005.severity = warning   # unused using
+dotnet_diagnostic.IDE0051.severity = warning   # unused private member
+dotnet_diagnostic.IDE0052.severity = warning   # unread private member
+dotnet_diagnostic.IDE0060.severity = warning   # unused parameter
+dotnet_diagnostic.CA1848.severity = none       # LoggerMessage delegates: not worth it at this scale
+dotnet_diagnostic.CA1873.severity = none       # same family: log-argument evaluation cost is irrelevant here
+dotnet_diagnostic.CS1591.severity = none       # XML docs are generated only so IDE0005 can run; not every member needs a comment
+dotnet_diagnostic.CA2254.severity = none       # logging template must be constant: we use templates, false positives on interpolation in exceptions
+dotnet_diagnostic.CA1031.severity = none       # catch general exceptions: intentional at process boundaries
+dotnet_diagnostic.CA1303.severity = none       # literal strings in UI
+dotnet_diagnostic.CA1054.severity = none       # URI parameters as string: hoster URLs are strings everywhere
+dotnet_diagnostic.CA1056.severity = none
+dotnet_diagnostic.CA1062.severity = none       # null checks on public args: nullable reference types cover this
+dotnet_diagnostic.CA1308.severity = none       # ToLowerInvariant for slugs/tokens is intended
+dotnet_diagnostic.CA1812.severity = none       # VM classes instantiated by XAML
+dotnet_diagnostic.CA1822.severity = suggestion # mark members static: fine to keep instance members on VMs
+dotnet_diagnostic.CA5351.severity = none       # MD5 is what hosters publish; it is a checksum, not security
+dotnet_diagnostic.CA5350.severity = none
+
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none       # underscores in test names
+dotnet_diagnostic.CA2007.severity = none
+
+[*]
+# ---- ReSharper / Rider -----------------------------------------------------------------------
+# ReSharper reads this file too. Layout is CSharpier's; these keep ReSharper from fighting it and
+# set inspection severities so the IDE, `dotnet jb inspectcode` (pre-push, CI) and humans agree.
+resharper_csharp_max_line_length = 100
+resharper_csharp_wrap_lines = true
+resharper_keep_existing_linebreaks = true
+resharper_keep_existing_arrangement = true
+resharper_keep_existing_attribute_arrangement = true
+resharper_keep_existing_declaration_parens_arrangement = true
+resharper_keep_existing_embedded_arrangement = true
+resharper_keep_existing_enum_arrangement = true
+resharper_keep_existing_expr_member_arrangement = true
+resharper_keep_existing_initializer_arrangement = true
+resharper_keep_existing_invocation_parens_arrangement = true
+resharper_keep_existing_list_patterns_arrangement = true
+resharper_keep_existing_property_patterns_arrangement = true
+resharper_keep_existing_switch_expression_arrangement = true
+resharper_csharp_align_multiline_parameter = false
+resharper_csharp_align_multiline_argument = false
+resharper_csharp_align_multiline_expression = false
+resharper_place_simple_initializer_on_single_line = true
+resharper_wrap_object_and_collection_initializer_style = chop_if_long
+resharper_braces_for_ifelse = not_required
+resharper_braces_for_for = not_required
+resharper_braces_for_foreach = not_required
+resharper_braces_for_while = not_required
+resharper_braces_for_lock = not_required
+resharper_braces_for_using = not_required
+resharper_braces_redundant = false
+
+# ReSharper applies dotnet_naming_* rules less selectively than Roslyn (private const/static readonly got the
+# _camelCase rule), so state the same policy in its own terms.
+resharper_csharp_naming_rule.private_constants = AaBb
+resharper_csharp_naming_rule.private_static_readonly = AaBb
+resharper_csharp_naming_rule.private_instance_fields = _ + aaBb
+resharper_csharp_naming_rule.private_static_fields = _ + aaBb
+resharper_csharp_naming_rule.constants = AaBb
+resharper_csharp_naming_rule.static_readonly = AaBb
+
+# Inspections we disagree with for this codebase (reasons inline)
+resharper_member_can_be_private_global_highlighting = none          # Core is a library surface used by App and spikes
+resharper_unused_member_global_highlighting = hint
+resharper_unused_member_in_super_global_highlighting = none
+resharper_unused_auto_property_accessor_global_highlighting = none  # DTO/record members read by bindings or future callers
+resharper_not_accessed_positional_property_global_highlighting = none
+resharper_auto_property_can_be_made_get_only_global_highlighting = none
+resharper_unused_method_return_value_global_highlighting = none
+resharper_event_never_subscribed_to_global_highlighting = none
+resharper_empty_general_catch_clause_highlighting = hint            # best-effort cleanup at process boundaries is deliberate
+resharper_method_has_async_overload_highlighting = hint             # sync File.* in tests and tiny files is fine
+resharper_method_has_async_overload_with_cancellation_highlighting = hint
+resharper_using_statement_resource_initialization_highlighting = hint
+resharper_unused_parameter_in_partial_method_highlighting = none    # CommunityToolkit On<Prop>Changed(value) partials
+resharper_partial_type_with_single_part_highlighting = none         # Avalonia XAML code-behind partials
+resharper_html_attribute_value_not_resolved_highlighting = none     # saved hoster pages in tests/Fixtures
+resharper_convert_to_primary_constructor_highlighting = hint
+resharper_arrange_method_or_operator_body_highlighting = hint
+resharper_arrange_object_creation_when_type_evident_highlighting = hint
+resharper_suggest_var_or_type_built_in_types_highlighting = hint
+resharper_use_collection_expression_highlighting = suggestion
+resharper_change_field_type_to_system_threading_lock_highlighting = hint
+
+# Inspections we want loud
+resharper_redundant_name_qualifier_highlighting = warning
+resharper_inconsistent_naming_highlighting = warning
+resharper_unused_variable_highlighting = warning
+resharper_redundant_assignment_highlighting = warning
+resharper_access_to_disposed_closure_highlighting = warning
+resharper_inconsistently_synchronized_field_highlighting = warning
+

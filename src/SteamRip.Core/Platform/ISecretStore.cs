@@ -6,8 +6,8 @@ namespace SteamRip.Core.Platform;
 /// <summary>Keychain shim. Linux: Secret Service via <c>secret-tool</c>; Windows: DPAPI-protected file; fallback: 0600 file in the config dir.</summary>
 public interface ISecretStore
 {
-    string? Get(string key);
-    void Set(string key, string? value);
+    string? Read(string key);
+    void Write(string key, string? value);
     string Backend { get; }
 }
 
@@ -27,20 +27,20 @@ internal sealed class SecretToolStore(string exe, ISecretStore fallback) : ISecr
 {
     public string Backend => "Secret Service (secret-tool)";
 
-    public string? Get(string key)
+    public string? Read(string key)
     {
         var (code, output) = Run("lookup", "application", "steamrip-desktop", "key", key);
         if (code == 0 && output.Length > 0)
             return output.TrimEnd('\n');
-        return fallback.Get(key);
+        return fallback.Read(key);
     }
 
-    public void Set(string key, string? value)
+    public void Write(string key, string? value)
     {
         if (value is null)
         {
             Run("clear", "application", "steamrip-desktop", "key", key);
-            fallback.Set(key, null);
+            fallback.Write(key, null);
             return;
         }
         var psi = Psi(
@@ -60,12 +60,12 @@ internal sealed class SecretToolStore(string exe, ISecretStore fallback) : ISecr
             p.WaitForExit(5000);
             if (p.ExitCode == 0)
             {
-                fallback.Set(key, null);
+                fallback.Write(key, null);
                 return;
             }
         }
         catch { }
-        fallback.Set(key, value);
+        fallback.Write(key, value);
     }
 
     private (int, string) Run(params string[] args)
@@ -104,10 +104,10 @@ internal sealed class FileSecretStore(string dir) : ISecretStore
     private string PathFor(string key) =>
         Path.Combine(dir, "secrets", Install.Installer.SafeName(key) + ".secret");
 
-    public string? Get(string key) =>
+    public string? Read(string key) =>
         File.Exists(PathFor(key)) ? File.ReadAllText(PathFor(key)) : null;
 
-    public void Set(string key, string? value)
+    public void Write(string key, string? value)
     {
         var p = PathFor(key);
         if (value is null)
@@ -130,7 +130,7 @@ internal sealed class DpapiFileStore(string dir) : ISecretStore
     private string PathFor(string key) =>
         Path.Combine(dir, "secrets", Install.Installer.SafeName(key) + ".dpapi");
 
-    public string? Get(string key)
+    public string? Read(string key)
     {
         if (!File.Exists(PathFor(key)) || !OperatingSystem.IsWindows())
             return null;
@@ -142,7 +142,7 @@ internal sealed class DpapiFileStore(string dir) : ISecretStore
         return Encoding.UTF8.GetString(bytes);
     }
 
-    public void Set(string key, string? value)
+    public void Write(string key, string? value)
     {
         var p = PathFor(key);
         if (value is null)

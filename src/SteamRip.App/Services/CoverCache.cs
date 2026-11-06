@@ -9,6 +9,11 @@ namespace SteamRip.App.Services;
 /// Lazy per card, 4 downloads in flight, disk cache under <c>&lt;config&gt;/covers/</c>, decoded once at thumbnail width
 /// and kept in memory, 404s remembered for a week so missing covers are not re-asked on every search.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "Process-lifetime singleton; the semaphore dies with the app."
+)]
 public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> log)
 {
     public const int DecodeWidth = 140;
@@ -18,7 +23,9 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
     private readonly SemaphoreSlim _gate = new(4);
 
     public Task<Bitmap?> GetAsync(long? steamAppId) =>
-        steamAppId is > 0 ? _mem.GetOrAdd(steamAppId.Value, LoadAsync) : Task.FromResult<Bitmap?>(null);
+        steamAppId is > 0
+            ? _mem.GetOrAdd(steamAppId.Value, LoadAsync)
+            : Task.FromResult<Bitmap?>(null);
 
     private async Task<Bitmap?> LoadAsync(long id)
     {
@@ -29,7 +36,10 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
             Directory.CreateDirectory(dir);
             if (!File.Exists(file))
             {
-                if (File.Exists(missing) && File.GetLastWriteTimeUtc(missing) > DateTime.UtcNow.AddDays(-7))
+                if (
+                    File.Exists(missing)
+                    && File.GetLastWriteTimeUtc(missing) > DateTime.UtcNow.AddDays(-7)
+                )
                     return null;
                 if (!await FetchAsync(id, file))
                 {
@@ -47,7 +57,11 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
         {
             log.LogDebug("Cover {AppId}: {Error}", id, e.Message);
             _mem.TryRemove(id, out _); // let a later card retry
-            try { File.Delete(file); } catch { }
+            try
+            {
+                File.Delete(file);
+            }
+            catch { }
             return null;
         }
     }
@@ -59,18 +73,29 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
         {
             foreach (var name in Variants)
             {
-                using var r = await http.GetAsync($"https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/{name}");
-                if (!r.IsSuccessStatusCode) continue;
+                using var r = await http.GetAsync(
+                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/{name}"
+                );
+                if (!r.IsSuccessStatusCode)
+                    continue;
                 var tmp = file + ".part";
                 await using (var fs = File.Create(tmp))
                     await r.Content.CopyToAsync(fs);
                 File.Move(tmp, file, overwrite: true);
-                log.LogDebug("Cover {AppId}: cached {Variant} ({Bytes} bytes)", id, name, new FileInfo(file).Length);
+                log.LogDebug(
+                    "Cover {AppId}: cached {Variant} ({Bytes} bytes)",
+                    id,
+                    name,
+                    new FileInfo(file).Length
+                );
                 return true;
             }
             log.LogDebug("Cover {AppId}: none on Steam CDN", id);
             return false;
         }
-        finally { _gate.Release(); }
+        finally
+        {
+            _gate.Release();
+        }
     }
 }

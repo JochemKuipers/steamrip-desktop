@@ -89,6 +89,7 @@ public sealed class Database : IDisposable
         );
         for (var v = (int)current; v < Migrations.Length; v++)
         {
+            // ReSharper disable once InconsistentlySynchronizedField -- constructor, nothing else holds the connection yet
             using var tx = _db.BeginTransaction();
             Exec(Migrations[v], tx);
             Exec(
@@ -320,6 +321,7 @@ public sealed class Database : IDisposable
 
     private void Exec(string sql, SqliteTransaction? tx = null, params (string, object?)[] args)
     {
+        // ReSharper disable once InconsistentlySynchronizedField -- callers hold _lock (or are the constructor)
         using var cmd = _db.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = sql;

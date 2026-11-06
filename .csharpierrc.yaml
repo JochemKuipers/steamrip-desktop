@@ -1,0 +1,5 @@
+# CSharpier formats C# and AXAML. Run `dotnet csharpier format .` or let the pre-commit hook do it.
+printWidth: 100
+useTabs: false
+indentSize: 4
+endOfLine: lf

@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Full check before anything leaves the machine: formatting, analyzers, tests.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+dotnet tool restore >/dev/null
+dotnet csharpier check .
+dotnet build --nologo -v quiet
+dotnet test --nologo -v quiet --no-build
+scripts/inspect.sh

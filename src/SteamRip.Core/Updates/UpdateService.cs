@@ -159,7 +159,6 @@ public sealed class UpdateService : IAsyncDisposable
             var complete = _db.GetKv("catalog_complete") == "1";
             var since = full || !complete ? null : _db.NewestModified();
             var batch = new List<CatalogPost>();
-            var known = new HashSet<long>();
             var newPosts = new List<CatalogPost>();
             var count = 0;
             await foreach (var p in _catalog.GetModifiedSinceAsync(since, ct))

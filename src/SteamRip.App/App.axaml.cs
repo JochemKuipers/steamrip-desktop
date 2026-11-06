@@ -19,6 +19,11 @@ using SteamRip.Core.Updates;
 
 namespace SteamRip.App;
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "Application lives for the whole process; the watcher is released on exit."
+)]
 public partial class App : Application
 {
     public AppServices Services { get; private set; } = null!;

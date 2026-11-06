@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using SteamRip.Core.Launch;
-using SteamRip.Core.Platform;
 
 namespace SteamRip.App.ViewModels;
 
@@ -148,7 +147,8 @@ public partial class SettingsViewModel : ObservableObject
             SolverTest = changed ? $"{url} answered. Saved." : $"{url} answered. Good.";
         }
         else
-            SolverTest = $"No answer from {url} within 5 s. Is it running, is the port right, and does the firewall allow it?";
+            SolverTest =
+                $"No answer from {url} within 5 s. Is it running, is the port right, and does the firewall allow it?";
     }
 
     [RelayCommand]

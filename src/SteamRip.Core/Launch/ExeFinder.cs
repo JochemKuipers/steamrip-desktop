@@ -145,8 +145,11 @@ public static class ExeFinder
         }
     }
 
-    public static string? Best(string gameRoot, string? gameName = null) =>
-        Candidates(gameRoot, gameName).FirstOrDefault()?.RelativePath;
+    public static string? Best(string gameRoot, string? gameName = null)
+    {
+        var all = Candidates(gameRoot, gameName);
+        return all.Count > 0 ? all[0].RelativePath : null;
+    }
 
     private static string Squash(string s) =>
         new(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());

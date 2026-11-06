@@ -32,7 +32,15 @@ public partial class BrowseViewModel : ObservableObject
         var installed = _s.Db.GetInstalls().ToDictionary(g => g.PostId);
         Items.Clear();
         foreach (var p in posts)
-            Items.Add(new BrowseItem(this, p, installed.ContainsKey(p.Id), _s.Resolvers.Supported, _s.Covers));
+            Items.Add(
+                new BrowseItem(
+                    this,
+                    p,
+                    installed.ContainsKey(p.Id),
+                    _s.Resolvers.Supported,
+                    _s.Covers
+                )
+            );
         var total = _s.Db.PostCount();
         Summary =
             total == 0
@@ -49,10 +57,10 @@ public partial class BrowseViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task Sync() => _s.Updates.SyncCatalogAsync();
+    private async Task Sync() => await _s.Updates.SyncCatalogAsync();
 
     [RelayCommand]
-    private Task FullSync() => _s.Updates.SyncCatalogAsync(full: true);
+    private async Task FullSync() => await _s.Updates.SyncCatalogAsync(full: true);
 }
 
 public sealed partial class BrowseItem(
@@ -84,7 +92,8 @@ public sealed partial class BrowseItem(
     private async Task LoadCoverAsync()
     {
         var bmp = await covers.GetAsync(post.SteamAppId);
-        if (bmp is null) return;
+        if (bmp is null)
+            return;
         _cover = bmp;
         OnPropertyChanged(nameof(Cover));
     }

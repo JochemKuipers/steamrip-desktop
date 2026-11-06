@@ -34,10 +34,29 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ## Build, test, run
 
 ```sh
-dotnet build                                   # whole solution
+dotnet tool restore                            # once per clone: CSharpier + ReSharper CLI (dotnet-tools.json)
+git config core.hooksPath .githooks            # once per clone: pre-commit format+build, pre-push full gate
+dotnet build                                   # whole solution; analyzers on, warnings are errors
 dotnet test                                    # 34 tests, ~1 s, no network
 dotnet run --project src/SteamRip.App -- --show --verbose
 ```
+
+## Code quality gates
+
+Three tools, one source of truth (`.editorconfig`), all of them wired into the git hooks and `.gitlab-ci.yml`:
+
+| Gate | Command | Owns |
+| --- | --- | --- |
+| CSharpier | `dotnet csharpier format .` / `check .` | All whitespace and line breaking in `.cs` and `.axaml` (`.csharpierrc.yaml`: width 100). Never hand-format; never argue with it. |
+| Roslyn analyzers | `dotnet build` | `AnalysisLevel=latest-recommended` + IDE style rules from `.editorconfig`, `TreatWarningsAsErrors`. Severities and the reasons for every disabled rule are in `.editorconfig`. |
+| ReSharper | `scripts/inspect.sh` | JetBrains inspections at WARNING+, same engine as the IDE extension. The `resharper_*` block in `.editorconfig` makes the IDE, the script and CI agree and stops ReSharper's formatter fighting CSharpier. |
+
+Rules of engagement:
+- Fix the code, not the rule. Downgrade a rule in `.editorconfig` only with an inline reason, in the same commit.
+- Naming: PascalCase for constants and `static readonly` fields, `_camelCase` for other private fields, `I` prefix for interfaces. Both Roslyn and ReSharper enforce this (the ReSharper variant needs `resharper_applicable_kinds`, see the comments).
+- Braces are not enforced either way; CSharpier wraps long single statements, so "multiline body" rules would fire constantly.
+- Suppress a one-off ReSharper finding with `// ReSharper disable once <Id> -- <why>`; Roslyn with `[SuppressMessage(..., Justification = "...")]`. Both need the reason.
+- The pre-commit hook formats staged files and builds; the pre-push hook also runs the tests and ReSharper (~1 min). Skip with `--no-verify` only when you are about to fix it in the next commit.
 
 Use a throwaway profile when running the app during development so you never touch the owner's real library and DB:
 
@@ -86,4 +105,4 @@ CachyOS, KDE on Wayland, .NET 10.0.114, `unrar`, `7z`, `secret-tool`, `gdbus`, `
 
 ## When you finish
 
-Run `dotnet build && dotnet test`, exercise the changed path once with the throwaway profile and confirm it in the log, commit with a conventional message, and update the relevant `docs/` page if behaviour or a hoster protocol changed. Documentation that disagrees with the code is worse than none.
+Run `dotnet build && dotnet test && scripts/inspect.sh`, exercise the changed path once with the throwaway profile and confirm it in the log, commit with a conventional message, and update the relevant `docs/` page if behaviour or a hoster protocol changed. Documentation that disagrees with the code is worse than none.

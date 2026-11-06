@@ -92,6 +92,7 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
         var last = -1;
         var tail = new StringBuilder();
         var reader = Task.Run(
+            // ReSharper disable once AccessToDisposedClosure -- awaited before the process is disposed
             async () =>
             {
                 var buf = new char[256];
@@ -115,6 +116,7 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
             ct
         );
         var errTask = p.StandardError.ReadToEndAsync(ct);
+        // ReSharper disable once AccessToDisposedClosure -- registration is disposed before the process
         using var reg = ct.Register(() =>
         {
             try

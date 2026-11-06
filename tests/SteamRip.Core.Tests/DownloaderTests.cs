@@ -7,6 +7,11 @@ using SteamRip.Core.Hosters;
 namespace SteamRip.Core.Tests;
 
 /// <summary>Runs a tiny local HTTP server that honours Range and can drop the connection mid-body, to exercise resume + verification.</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "xunit tears down through IAsyncLifetime.DisposeAsync."
+)]
 public class DownloaderTests : IAsyncLifetime
 {
     private HttpListener _listener = null!;
@@ -81,6 +86,8 @@ public class DownloaderTests : IAsyncLifetime
     {
         _cts.Cancel();
         _listener.Stop();
+        _listener.Close();
+        _cts.Dispose();
         return Task.CompletedTask;
     }
 
