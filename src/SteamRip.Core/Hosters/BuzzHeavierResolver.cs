@@ -90,7 +90,7 @@ public sealed class BuzzHeavierResolver(
                 ],
                 ct
             );
-            if (res is null || res == "null")
+            if (res is null or "null")
                 throw new HostResolveException(Host, "download endpoint did not answer");
             _log.LogDebug("BuzzHeavier in-page fetch result: {Result}", res);
             using var rd = JsonDocument.Parse(res);

@@ -18,20 +18,18 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
     public string? SevenZipPath { get; init; } =
         Find("7z") ?? Find("7za") ?? Find("7zz") ?? Find("7zr");
 
-    public bool Available => UnrarPath is not null || SevenZipPath is not null;
-
     public string Describe() => $"unrar: {UnrarPath ?? "missing"}, 7z: {SevenZipPath ?? "missing"}";
 
     public async Task<bool> TestAsync(string archive, CancellationToken ct)
     {
-        var (exe, args) =
+        (string exe, string[] args) tool =
             UnrarPath is not null && archive.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)
-                ? (UnrarPath, new[] { "t", "-y", "-idq", archive })
+                ? (UnrarPath, ["t", "-y", "-idq", archive])
                 : (
                     SevenZipPath ?? throw new InvalidOperationException("No archive tool found"),
-                    new[] { "t", archive, "-y", "-bso0", "-bsp0" }
+                    ["t", archive, "-y", "-bso0", "-bsp0"]
                 );
-        var code = await RunAsync(exe, args, null, ct);
+        var code = await RunAsync(tool.exe, tool.args, null, ct);
         return code == 0;
     }
 
@@ -43,26 +41,25 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
     )
     {
         Directory.CreateDirectory(destination);
-        var (exe, args) =
+        (string exe, string[] args) tool =
             UnrarPath is not null && archive.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)
                 ? (
                     UnrarPath,
-                    new[]
-                    {
+                    [
                         "x",
                         "-y",
                         "-o+",
                         archive,
                         destination.TrimEnd('/', '\\') + Path.DirectorySeparatorChar,
-                    }
+                    ]
                 )
                 : (
                     SevenZipPath ?? throw new InvalidOperationException("No archive tool found"),
-                    new[] { "x", archive, "-o" + destination, "-y", "-bsp1", "-bso0" }
+                    ["x", archive, "-o" + destination, "-y", "-bsp1", "-bso0"]
                 );
-        var code = await RunAsync(exe, args, percent, ct);
+        var code = await RunAsync(tool.exe, tool.args, percent, ct);
         if (code != 0)
-            throw new InvalidOperationException($"{Path.GetFileName(exe)} exited with {code}");
+            throw new InvalidOperationException($"{Path.GetFileName(tool.exe)} exited with {code}");
     }
 
     private async Task<int> RunAsync(
@@ -105,11 +102,10 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
                     foreach (Match m in Percent().Matches(chunk))
                     {
                         var v = int.Parse(m.Groups[1].Value);
-                        if (v != last && v <= 100)
-                        {
-                            last = v;
-                            percent?.Report(v);
-                        }
+                        if (v == last || v > 100)
+                            continue;
+                        last = v;
+                        percent?.Report(v);
                     }
                 }
             },
@@ -117,13 +113,16 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
         );
         var errTask = p.StandardError.ReadToEndAsync(ct);
         // ReSharper disable once AccessToDisposedClosure -- registration is disposed before the process
-        using var reg = ct.Register(() =>
+        await using var reg = ct.Register(() =>
         {
             try
             {
                 p.Kill(true);
             }
-            catch { }
+            catch
+            {
+                // already exited between the cancel and the kill
+            }
         });
         await p.WaitForExitAsync(ct);
         await Task.WhenAll(reader, errTask);
@@ -149,43 +148,31 @@ public sealed partial class ArchiveTool(ILogger<ArchiveTool>? logger = null)
     public static string? Find(string name)
     {
         var exeNames = OperatingSystem.IsWindows() ? new[] { name + ".exe", name } : new[] { name };
-        var dirs = new List<string>();
-        dirs.Add(AppContext.BaseDirectory);
-        dirs.Add(Path.Combine(AppContext.BaseDirectory, "tools"));
-        dirs.AddRange(
-            (Environment.GetEnvironmentVariable("PATH") ?? "").Split(
+        List<string> dirs =
+        [
+            AppContext.BaseDirectory,
+            Path.Combine(AppContext.BaseDirectory, "tools"),
+            .. (Environment.GetEnvironmentVariable("PATH") ?? "").Split(
                 Path.PathSeparator,
                 StringSplitOptions.RemoveEmptyEntries
-            )
-        );
+            ),
+        ];
         if (OperatingSystem.IsWindows())
-        {
-            dirs.Add(
+            dirs.AddRange([
                 Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                     "7-Zip"
-                )
-            );
-            dirs.Add(
+                ),
                 Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
                     "7-Zip"
-                )
-            );
-            dirs.Add(
+                ),
                 Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                     "WinRAR"
-                )
-            );
-        }
-        foreach (var d in dirs)
-        foreach (var e in exeNames)
-        {
-            var p = Path.Combine(d, e);
-            if (File.Exists(p))
-                return p;
-        }
-        return null;
+                ),
+            ]);
+        return dirs.SelectMany(d => exeNames.Select(e => Path.Combine(d, e)))
+            .FirstOrDefault(File.Exists);
     }
 }

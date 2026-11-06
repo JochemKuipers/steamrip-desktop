@@ -18,7 +18,10 @@ public class LaunchTests : IDisposable
         {
             Directory.Delete(_root, true);
         }
-        catch { }
+        catch
+        {
+            // temp dir cleanup is best effort
+        }
     }
 
     private void Exe(string rel, int kb = 1024)

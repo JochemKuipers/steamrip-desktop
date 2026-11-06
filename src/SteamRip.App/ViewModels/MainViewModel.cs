@@ -17,28 +17,28 @@ public partial class MainViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
 
     [ObservableProperty]
-    private object _current;
+    public partial object Current { get; set; }
 
     [ObservableProperty]
-    private string _section = "Library";
+    public partial string Section { get; set; } = "Library";
 
     [ObservableProperty]
-    private string _syncLine = "Never synced";
+    public partial string SyncLine { get; set; } = "Never synced";
 
     [ObservableProperty]
-    private bool _syncing;
+    public partial bool Syncing { get; set; }
 
     [ObservableProperty]
-    private bool _solverHealthy;
+    public partial bool SolverHealthy { get; set; }
 
     [ObservableProperty]
-    private string _solverLine = "FlareSolverr: checking…";
+    public partial string SolverLine { get; set; } = "FlareSolverr: checking…";
 
     [ObservableProperty]
-    private int _queueCount;
+    public partial int QueueCount { get; set; }
 
     [ObservableProperty]
-    private int _attentionCount;
+    public partial int AttentionCount { get; set; }
 
     public MainViewModel(AppServices s)
     {
@@ -48,7 +48,7 @@ public partial class MainViewModel : ObservableObject
         Queue = new QueueViewModel(s);
         Activity = new ActivityViewModel(s);
         Settings = new SettingsViewModel(s);
-        _current = Library;
+        Current = Library;
 
         s.Updates.SyncChanged += () => Dispatcher.UIThread.Post(RefreshSync);
         s.Updates.JobsChanged += () => Dispatcher.UIThread.Post(RefreshCounts);
@@ -80,12 +80,18 @@ public partial class MainViewModel : ObservableObject
             "Settings" => Settings,
             _ => Library,
         };
-        if (Current is LibraryViewModel l)
-            l.Refresh();
-        if (Current is ActivityViewModel a)
-            a.Refresh();
-        if (Current is BrowseViewModel b)
-            b.Refresh();
+        switch (Current)
+        {
+            case LibraryViewModel l:
+                l.Refresh();
+                break;
+            case ActivityViewModel a:
+                a.Refresh();
+                break;
+            case BrowseViewModel b:
+                b.Refresh();
+                break;
+        }
     }
 
     [RelayCommand]
@@ -133,12 +139,9 @@ public partial class MainViewModel : ObservableObject
     public static string Humanize(DateTime utc)
     {
         var d = DateTime.UtcNow - utc;
-        if (d.TotalSeconds < 60)
-            return "just now";
-        if (d.TotalMinutes < 60)
-            return $"{(int)d.TotalMinutes} min ago";
-        if (d.TotalHours < 24)
-            return $"{(int)d.TotalHours} h ago";
-        return $"{(int)d.TotalDays} d ago";
+        return d.TotalSeconds < 60 ? "just now"
+            : d.TotalMinutes < 60 ? $"{(int)d.TotalMinutes} min ago"
+            : d.TotalHours < 24 ? $"{(int)d.TotalHours} h ago"
+            : $"{(int)d.TotalDays} d ago";
     }
 }

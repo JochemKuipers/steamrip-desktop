@@ -106,9 +106,10 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
                 {
                     var dest = Path.Combine(backupPath, "emu", i.ToString(), appId.ToString());
                     CopyDir(emuDir, dest);
-                    File.WriteAllText(
+                    await File.WriteAllTextAsync(
                         Path.Combine(backupPath, "emu", i.ToString(), "source.txt"),
-                        emuDir
+                        emuDir,
+                        ct
                     );
                     backedUp.Add(emuDir);
                     _log.LogInformation(
@@ -124,9 +125,10 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
                     slug
                 );
                 Directory.CreateDirectory(backupPath);
-                File.WriteAllText(
+                await File.WriteAllTextAsync(
                     Path.Combine(backupPath, "no-saves-found.txt"),
-                    "No save-like directories were found before this update."
+                    "No save-like directories were found before this update.",
+                    ct
                 );
             }
 
@@ -179,18 +181,16 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
         var files = entries.Where(File.Exists).ToList();
         var realDirs = dirs.Where(d => !NoiseDirs.Contains(Path.GetFileName(d).ToLowerInvariant()))
             .ToList();
-        if (files.Count == 0 && realDirs.Count == 1)
+        if (files.Count != 0 || realDirs.Count != 1)
+            return staging;
+        // Move noise dirs (redist) into the real dir so nothing is lost, then collapse.
+        foreach (var noise in dirs.Except(realDirs))
         {
-            // Move noise dirs (redist) into the real dir so nothing is lost, then collapse.
-            foreach (var noise in dirs.Except(realDirs))
-            {
-                var dest = Path.Combine(realDirs[0], Path.GetFileName(noise));
-                if (!Directory.Exists(dest))
-                    Directory.Move(noise, dest);
-            }
-            return realDirs[0];
+            var dest = Path.Combine(realDirs[0], Path.GetFileName(noise));
+            if (!Directory.Exists(dest))
+                Directory.Move(noise, dest);
         }
-        return staging;
+        return realDirs[0];
     }
 
     public static void PruneBackups(string backupsRoot, int keep, ILogger? log = null)

@@ -16,16 +16,16 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     public ObservableCollection<LibraryItem> Items { get; } = [];
     internal Services.CoverCache Covers => s.Covers;
     public IReadOnlyList<ProtonBuild> Protons { get; } =
-    [new ProtonBuild("App default", ""), .. ProtonLocator.Find()];
+    [new("App default", ""), .. ProtonLocator.Find()];
 
     [ObservableProperty]
-    private int _updatesAvailable;
+    public partial int UpdatesAvailable { get; set; }
 
     [ObservableProperty]
-    private bool _isEmpty = true;
+    public partial bool IsEmpty { get; set; } = true;
 
     [ObservableProperty]
-    private string? _lastError;
+    public partial string? LastError { get; set; }
 
     public void Refresh()
     {
@@ -163,11 +163,7 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
 public sealed partial class LibraryItem : ObservableObject
 {
     private readonly LibraryViewModel _owner;
-    private InstalledGame _game;
-    private CatalogPost? _post;
     private Job? _job;
-    private bool _hasUpdate;
-    private bool _running;
 
     public LibraryItem(
         LibraryViewModel owner,
@@ -179,12 +175,12 @@ public sealed partial class LibraryItem : ObservableObject
     )
     {
         _owner = owner;
-        _game = game;
-        _post = post;
+        Game = game;
+        Post = post;
         _job = job;
-        _hasUpdate = hasUpdate;
-        _running = running;
-        _launchArgs = game.LaunchArgs ?? "";
+        HasUpdate = hasUpdate;
+        IsRunning = running;
+        LaunchArgs = game.LaunchArgs ?? "";
         RefreshExes();
     }
 
@@ -197,14 +193,14 @@ public sealed partial class LibraryItem : ObservableObject
     )
     {
         var exeChanged =
-            game.ExeRelative != _game.ExeRelative
-            || game.InstallPath != _game.InstallPath
-            || game.InstalledVersion != _game.InstalledVersion;
-        _game = game;
-        _post = post;
+            game.ExeRelative != Game.ExeRelative
+            || game.InstallPath != Game.InstallPath
+            || game.InstalledVersion != Game.InstalledVersion;
+        Game = game;
+        Post = post;
         _job = job;
-        _hasUpdate = hasUpdate;
-        _running = running;
+        HasUpdate = hasUpdate;
+        IsRunning = running;
         if (exeChanged)
             RefreshExes();
         if (LaunchArgs != (game.LaunchArgs ?? ""))
@@ -215,20 +211,20 @@ public sealed partial class LibraryItem : ObservableObject
     private void RefreshExes()
     {
         Exes.Clear();
-        foreach (var c in ExeFinder.Candidates(_game.InstallPath, _game.Name))
+        foreach (var c in ExeFinder.Candidates(Game.InstallPath, Game.Name))
             Exes.Add(c.RelativePath);
-        if (_game.ExeRelative is { } cur && !Exes.Contains(cur))
+        if (Game.ExeRelative is { } cur && !Exes.Contains(cur))
             Exes.Insert(0, cur);
-        _selectedExe = _game.ExeRelative;
+        _selectedExe = Game.ExeRelative;
         _selectedProton =
-            _owner.Protons.FirstOrDefault(p => p.Path == (_game.ProtonPath ?? ""))
+            _owner.Protons.FirstOrDefault(p => p.Path == (Game.ProtonPath ?? ""))
             ?? _owner.Protons[0];
         OnPropertyChanged(nameof(SelectedExe));
         OnPropertyChanged(nameof(SelectedProton));
     }
 
-    public InstalledGame Game => _game;
-    public CatalogPost? Post => _post;
+    public InstalledGame Game { get; private set; }
+    public CatalogPost? Post { get; private set; }
 
     private Bitmap? _cover;
     private bool _coverRequested;
@@ -238,66 +234,59 @@ public sealed partial class LibraryItem : ObservableObject
     {
         get
         {
-            if (!_coverRequested && _post?.SteamAppId is > 0)
-            {
-                _coverRequested = true;
-                _ = LoadCoverAsync();
-            }
+            if (_coverRequested || Post?.SteamAppId is not > 0)
+                return _cover;
+            _coverRequested = true;
+            _ = LoadCoverAsync();
             return _cover;
         }
     }
-    public string Initial => _game.Name.Length > 0 ? _game.Name[..1].ToUpperInvariant() : "?";
+    public string Initial => Game.Name.Length > 0 ? Game.Name[..1].ToUpperInvariant() : "?";
 
     private async Task LoadCoverAsync()
     {
-        var bmp = await _owner.Covers.GetAsync(_post?.SteamAppId);
+        var bmp = await _owner.Covers.GetAsync(Post?.SteamAppId);
         if (bmp is null)
             return;
         _cover = bmp;
         OnPropertyChanged(nameof(Cover));
     }
 
-    public string Name => _game.Name;
-    public string InstalledVersion => _game.InstalledVersion ?? "—";
-    public string SiteVersion => UpdateDetector.Normalize(_post?.VersionKey) ?? "—";
-    public bool HasUpdate => _hasUpdate;
-    public bool IsRunning => _running;
+    public string Name => Game.Name;
+    public string InstalledVersion => Game.InstalledVersion ?? "—";
+    public string SiteVersion => UpdateDetector.Normalize(Post?.VersionKey) ?? "—";
+    public bool HasUpdate { get; private set; }
+    public bool IsRunning { get; private set; }
     public bool IsBusy =>
-        _job is not null
-        && _job.Stage
+        _job?.Stage
             is JobStage.Queued
                 or JobStage.Resolving
                 or JobStage.Downloading
                 or JobStage.Installing;
-    public bool CanPlay => !_running && !IsBusy && _game.State == InstallState.Installed;
+    public bool CanPlay => !IsRunning && !IsBusy && Game.State == InstallState.Installed;
     public bool IsIdle => !IsBusy;
-    public bool NeedsAttention => _game.State is InstallState.Failed or InstallState.NeedsAttention;
-    public bool AutoUpdate => _game.AutoUpdate;
-    public string AutoLabel => _game.AutoUpdate ? "Auto-update on" : "Auto-update off";
+    public bool NeedsAttention => Game.State is InstallState.Failed or InstallState.NeedsAttention;
+    public string AutoLabel => Game.AutoUpdate ? "Auto-update on" : "Auto-update off";
     public string Playtime =>
-        _game.PlaytimeSeconds switch
+        Game.PlaytimeSeconds switch
         {
             0 => "",
-            < 3600 => $"{_game.PlaytimeSeconds / 60} min played",
+            < 3600 => $"{Game.PlaytimeSeconds / 60} min played",
             var s => $"{s / 3600.0:0.0} h played",
         };
     public string StatusLine =>
-        _running ? "Running"
+        IsRunning ? "Running"
         : _job is not null && IsBusy ? _job.Status
-        : NeedsAttention ? (_game.LastError?.Split('\n')[0] ?? "Needs attention")
-        : _hasUpdate
+        : NeedsAttention ? Game.LastError?.Split('\n')[0] ?? "Needs attention"
+        : HasUpdate
             ? "Update available"
-                + (_game.AutoUpdate ? " · installs automatically" : " · auto-update off")
-        : _game.State == InstallState.Installed
-            ? (
-                _game.LastPlayedUtc is { } lp
-                    ? $"Last played {MainViewModel.Humanize(lp)}"
-                    : $"Installed {MainViewModel.Humanize(_game.InstalledUtc)} · never played"
-            )
-        : _game.State.ToString();
-    public string InstallPath => _game.InstallPath;
-    public string SizeText => _post?.SizeText ?? "";
-    public string ExeLine => _game.ExeRelative ?? "No executable chosen";
+                + (Game.AutoUpdate ? " · installs automatically" : " · auto-update off")
+        : Game.State == InstallState.Installed
+            ? Game.LastPlayedUtc is { } lp ? $"Last played {MainViewModel.Humanize(lp)}"
+                : $"Installed {MainViewModel.Humanize(Game.InstalledUtc)} · never played"
+        : Game.State.ToString();
+    public string SizeText => Post?.SizeText ?? "";
+    public string ExeLine => Game.ExeRelative ?? "No executable chosen";
 
     public ObservableCollection<string> Exes { get; } = [];
     public IReadOnlyList<ProtonBuild> Protons => _owner.Protons;
@@ -331,11 +320,11 @@ public sealed partial class LibraryItem : ObservableObject
     }
 
     [ObservableProperty]
-    private string _launchArgs;
+    public partial string LaunchArgs { get; set; }
 
     partial void OnLaunchArgsChanged(string value)
     {
-        if (value != (_game.LaunchArgs ?? ""))
+        if (value != (Game.LaunchArgs ?? ""))
             _owner.SetArgs(this, value);
     }
 

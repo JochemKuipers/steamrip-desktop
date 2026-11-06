@@ -93,6 +93,12 @@ dotnet_diagnostic.CA5350.severity = none
 dotnet_diagnostic.CA1707.severity = none       # underscores in test names
 dotnet_diagnostic.CA2007.severity = none
 
+[src/SteamRip.App/ViewModels/**.cs]
+# Bound properties and [RelayCommand] methods must be instance members even when they touch no state.
+dotnet_diagnostic.CA1822.severity = none
+resharper_member_can_be_made_static_global_highlighting = none
+resharper_member_can_be_made_static_local_highlighting = none
+
 [*]
 # ---- ReSharper / Rider -----------------------------------------------------------------------
 # ReSharper reads this file too. Layout is CSharpier's; these keep ReSharper from fighting it and

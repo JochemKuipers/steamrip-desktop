@@ -12,10 +12,10 @@ public partial class BrowseViewModel : ObservableObject
     private readonly AppServices _s;
 
     [ObservableProperty]
-    private string _query = "";
+    public partial string Query { get; set; } = "";
 
     [ObservableProperty]
-    private string _summary = "";
+    public partial string Summary { get; set; } = "";
     public ObservableCollection<BrowseItem> Items { get; } = [];
 
     public BrowseViewModel(AppServices s)
@@ -79,11 +79,10 @@ public sealed partial class BrowseItem(
     {
         get
         {
-            if (!_coverRequested)
-            {
-                _coverRequested = true;
-                _ = LoadCoverAsync();
-            }
+            if (_coverRequested)
+                return _cover;
+            _coverRequested = true;
+            _ = LoadCoverAsync();
             return _cover;
         }
     }

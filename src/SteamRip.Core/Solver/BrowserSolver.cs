@@ -16,12 +16,10 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
     {
         log?.LogInformation("Checking Playwright Chromium (playwright install chromium)…");
         var code = Program.Main(["install", "chromium"]);
-        if (code != 0)
-        {
-            log?.LogError("playwright install chromium exited with {Code}", code);
-            throw new SolverException($"playwright install chromium exited with {code}");
-        }
-        return Task.CompletedTask;
+        if (code == 0)
+            return Task.CompletedTask;
+        log?.LogError("playwright install chromium exited with {Code}", code);
+        throw new SolverException($"playwright install chromium exited with {code}");
     }
 
     public async Task<SolveResult> SolveAsync(
@@ -37,17 +35,22 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
             referer ?? "none"
         );
         using var pw = await Playwright.CreateAsync();
-        await using var browser = await pw.Chromium.LaunchAsync(new() { Headless = false });
+        await using var browser = await pw.Chromium.LaunchAsync(
+            new BrowserTypeLaunchOptions { Headless = false }
+        );
         var context = await browser.NewContextAsync(
             referer is null
-                ? new()
-                : new()
+                ? new BrowserNewContextOptions()
+                : new BrowserNewContextOptions
                 {
                     ExtraHTTPHeaders = new Dictionary<string, string> { ["Referer"] = referer },
                 }
         );
         var page = await context.NewPageAsync();
-        await page.GotoAsync(url, new() { WaitUntil = WaitUntilState.DOMContentLoaded });
+        await page.GotoAsync(
+            url,
+            new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded }
+        );
 
         var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromMinutes(3));
         var stable = 0;

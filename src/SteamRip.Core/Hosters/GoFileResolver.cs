@@ -61,23 +61,15 @@ public sealed partial class GoFileResolver(HttpClient http, ILogger<GoFileResolv
                 "folder has no children (password-protected or removed?)"
             );
 
-        JsonElement? best = null;
-        var n = 0;
-        foreach (var child in children.EnumerateObject())
-        {
-            var c = child.Value;
-            if (c.GetProperty("type").GetString() != "file")
-                continue;
-            n++;
-            if (
-                best is null
-                || c.GetProperty("size").GetInt64() > best.Value.GetProperty("size").GetInt64()
-            )
-                best = c;
-        }
-        if (best is null)
+        var files = children
+            .EnumerateObject()
+            .Select(child => child.Value)
+            .Where(c => c.GetProperty("type").GetString() == "file")
+            .ToList();
+        var n = files.Count;
+        if (n == 0)
             throw new HostResolveException(Host, "no files in folder");
-        var f = best.Value;
+        var f = files.MaxBy(c => c.GetProperty("size").GetInt64());
         var name = f.GetProperty("name").GetString();
         var size = f.GetProperty("size").GetInt64();
         _log.LogInformation(
@@ -135,16 +127,14 @@ public sealed partial class GoFileResolver(HttpClient http, ILogger<GoFileResolv
         );
         using var doc = JsonDocument.Parse(text);
         var root = doc.RootElement.Clone();
-        if (root.TryGetProperty("status", out var st) && st.GetString() != "ok")
-        {
-            _log.LogWarning(
-                "GoFile API {Url} answered status {Status}: {Body}",
-                url,
-                st.GetString(),
-                text.Length > 300 ? text[..300] : text
-            );
-            throw new HostResolveException(Host, $"API {url} → {st.GetString()}");
-        }
-        return root;
+        if (!root.TryGetProperty("status", out var st) || st.GetString() == "ok")
+            return root;
+        _log.LogWarning(
+            "GoFile API {Url} answered status {Status}: {Body}",
+            url,
+            st.GetString(),
+            text.Length > 300 ? text[..300] : text
+        );
+        throw new HostResolveException(Host, $"API {url} → {st.GetString()}");
     }
 }

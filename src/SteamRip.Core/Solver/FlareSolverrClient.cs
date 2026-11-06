@@ -186,8 +186,6 @@ public sealed class FlareSolverrClient(
 
     public sealed class Session(FlareSolverrClient client, string id) : IAsyncDisposable
     {
-        public string Id => id;
-
         public Task<SolveResult> GetAsync(
             string url,
             bool disableMedia = false,

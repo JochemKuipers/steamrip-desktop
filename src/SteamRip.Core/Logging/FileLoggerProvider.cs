@@ -20,14 +20,13 @@ public sealed class FileLoggerProvider : ILoggerProvider
     private DateOnly _currentDay;
 
     public LogLevel MinimumLevel { get; set; } = LogLevel.Information;
-    public string Directory => _dir;
     public event Action<string>? LineWritten;
 
     public FileLoggerProvider(string dir, int keepDays = 7)
     {
         _dir = dir;
         _keepDays = keepDays;
-        System.IO.Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(dir);
         _writer = new Thread(WriterLoop) { IsBackground = true, Name = "steamrip-log" };
         _writer.Start();
     }
@@ -106,11 +105,14 @@ public sealed class FileLoggerProvider : ILoggerProvider
         );
         try
         {
-            foreach (var f in System.IO.Directory.EnumerateFiles(_dir, "steamrip-*.log"))
+            foreach (var f in Directory.EnumerateFiles(_dir, "steamrip-*.log"))
                 if (File.GetLastWriteTime(f) < DateTime.Now.AddDays(-_keepDays))
                     File.Delete(f);
         }
-        catch { }
+        catch
+        {
+            // housekeeping only; a locked or vanished log file is not worth failing startup over
+        }
     }
 
     public void Dispose()

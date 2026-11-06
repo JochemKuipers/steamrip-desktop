@@ -20,7 +20,10 @@ public class InstallerTests : IDisposable
         {
             Directory.Delete(_root, true);
         }
-        catch { }
+        catch
+        {
+            // temp dir cleanup is best effort
+        }
     }
 
     private static bool HasSevenZip => new ArchiveTool().SevenZipPath is not null;
@@ -92,7 +95,10 @@ public class InstallerTests : IDisposable
 
         // Simulate play: in-folder saves and the game's own Wine prefix (created by umu on first launch) holding GSE saves.
         Directory.CreateDirectory(Path.Combine(game, "Saves", "slot1"));
-        File.WriteAllText(Path.Combine(game, "Saves", "slot1", "save.dat"), "progress v1");
+        await File.WriteAllTextAsync(
+            Path.Combine(game, "Saves", "slot1", "save.dat"),
+            "progress v1"
+        );
         var innerEmu = Path.Combine(
             game,
             "prefix",
@@ -105,8 +111,8 @@ public class InstallerTests : IDisposable
             "12345"
         );
         Directory.CreateDirectory(innerEmu);
-        File.WriteAllText(Path.Combine(innerEmu, "stats.bin"), "inner");
-        Assert.Equal("exe v1", File.ReadAllText(Path.Combine(game, "game.exe")));
+        await File.WriteAllTextAsync(Path.Combine(innerEmu, "stats.bin"), "inner");
+        Assert.Equal("exe v1", await File.ReadAllTextAsync(Path.Combine(game, "game.exe")));
 
         var r2 = await inst.InstallAsync(
             MakeArchive("v2"),
@@ -118,12 +124,12 @@ public class InstallerTests : IDisposable
             CancellationToken.None
         );
 
-        Assert.Equal("exe v2", File.ReadAllText(Path.Combine(game, "game.exe")));
+        Assert.Equal("exe v2", await File.ReadAllTextAsync(Path.Combine(game, "game.exe")));
         Assert.Equal(
             "progress v1",
-            File.ReadAllText(Path.Combine(game, "Saves", "slot1", "save.dat"))
+            await File.ReadAllTextAsync(Path.Combine(game, "Saves", "slot1", "save.dat"))
         ); // carried over
-        Assert.Equal("inner", File.ReadAllText(Path.Combine(innerEmu, "stats.bin"))); // prefix preserved in place
+        Assert.Equal("inner", await File.ReadAllTextAsync(Path.Combine(innerEmu, "stats.bin"))); // prefix preserved in place
         Assert.Contains("prefix", r2.PreservedPrefixes);
         Assert.NotNull(r2.BackupPath);
         Assert.Equal(Path.Combine(lib, ".backups", "cool-game", "v1"), r2.BackupPath);
@@ -184,7 +190,7 @@ public class InstallerTests : IDisposable
             CancellationToken.None
         );
         var bad = Path.Combine(_root, "bad.zip");
-        File.WriteAllBytes(bad, new byte[1024]);
+        await File.WriteAllBytesAsync(bad, new byte[1024]);
         await Assert.ThrowsAsync<InstallException>(() =>
             inst.InstallAsync(
                 bad,
@@ -196,7 +202,10 @@ public class InstallerTests : IDisposable
                 CancellationToken.None
             )
         );
-        Assert.Equal("exe v1", File.ReadAllText(Path.Combine(lib, "cool-game", "game.exe")));
+        Assert.Equal(
+            "exe v1",
+            await File.ReadAllTextAsync(Path.Combine(lib, "cool-game", "game.exe"))
+        );
     }
 
     [Fact]

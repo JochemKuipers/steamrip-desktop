@@ -75,10 +75,12 @@ public static class ExeFinder
         var nameTokens = Tokens(gameName ?? "");
         var nameSquashed = Squash(gameName ?? "");
         Walk(new DirectoryInfo(gameRoot), 0);
-        return list.OrderByDescending(c => c.Score)
-            .ThenBy(c => c.Depth)
-            .ThenByDescending(c => c.Size)
-            .ToList();
+        return
+        [
+            .. list.OrderByDescending(c => c.Score)
+                .ThenBy(c => c.Depth)
+                .ThenByDescending(c => c.Size),
+        ];
 
         void Walk(DirectoryInfo dir, int depth)
         {
@@ -95,53 +97,62 @@ public static class ExeFinder
             }
             foreach (var e in entries)
             {
-                if (e is DirectoryInfo d)
+                switch (e)
                 {
-                    if (
-                        d.LinkTarget is not null
-                        || NoiseDirs.Contains(d.Name.ToLowerInvariant())
-                        || Directory.Exists(Path.Combine(d.FullName, "drive_c"))
-                    )
-                        continue;
-                    Walk(d, depth + 1);
-                }
-                else if (
-                    e is FileInfo f
-                    && f.Extension.Equals(".exe", StringComparison.OrdinalIgnoreCase)
-                )
-                {
-                    var lower = Path.GetFileNameWithoutExtension(f.Name).ToLowerInvariant();
-                    if (NoiseNames.Any(n => lower.Contains(n)))
-                        continue;
-                    var rel = Path.GetRelativePath(gameRoot, f.FullName);
-                    var score = 0;
-                    var fileTokens = Tokens(lower);
-                    score += 10 * nameTokens.Count(t => fileTokens.Contains(t)); // name match is the strongest signal
-                    if (
-                        nameSquashed.Length > 3
-                        && (
-                            Squash(lower).Contains(nameSquashed)
-                            || nameSquashed.Contains(Squash(lower)) && lower.Length > 3
+                    case DirectoryInfo d:
+                        if (
+                            d.LinkTarget is not null
+                            || NoiseDirs.Contains(d.Name.ToLowerInvariant())
+                            || Directory.Exists(Path.Combine(d.FullName, "drive_c"))
                         )
-                    )
-                        score += 10; // "5dchesswithmultiversetimetravel"
-                    if (lower.Contains("shipping"))
-                        score += 8; // UE packaged binary
-                    if (lower.Contains("win64") || lower.Contains("x64"))
-                        score += 2;
-                    if (rel.Contains("Binaries", StringComparison.OrdinalIgnoreCase))
-                        score += 3; // UE layout
-                    if (lower.EndsWith("launcher") || lower.Contains("launcher"))
-                        score -= 3; // usually a stub, but sometimes the only way in
-                    if (depth == 0)
-                        score += 2; // top-level exe in the collapsed game dir
-                    if (f.Length > 50 << 20)
-                        score += 3;
-                    else if (f.Length < 300 << 10)
-                        score -= 2; // real games aren't tiny
-                    list.Add(new Candidate(rel, f.Length, depth, score));
+                            continue;
+                        Walk(d, depth + 1);
+                        break;
+                    case FileInfo f
+                        when f.Extension.Equals(".exe", StringComparison.OrdinalIgnoreCase):
+                        ScoreFile(f, depth);
+                        break;
                 }
             }
+        }
+
+        void ScoreFile(FileInfo f, int depth)
+        {
+            var lower = Path.GetFileNameWithoutExtension(f.Name).ToLowerInvariant();
+            if (NoiseNames.Any(lower.Contains))
+                return;
+            var rel = Path.GetRelativePath(gameRoot, f.FullName);
+            var score = 0;
+            var fileTokens = Tokens(lower);
+            score += 10 * nameTokens.Count(fileTokens.Contains); // name match is the strongest signal
+            if (
+                nameSquashed.Length > 3
+                && (
+                    Squash(lower).Contains(nameSquashed)
+                    || nameSquashed.Contains(Squash(lower)) && lower.Length > 3
+                )
+            )
+                score += 10; // "5dchesswithmultiversetimetravel"
+            if (lower.Contains("shipping"))
+                score += 8; // UE packaged binary
+            if (lower.Contains("win64") || lower.Contains("x64"))
+                score += 2;
+            if (rel.Contains("Binaries", StringComparison.OrdinalIgnoreCase))
+                score += 3; // UE layout
+            if (lower.EndsWith("launcher") || lower.Contains("launcher"))
+                score -= 3; // usually a stub, but sometimes the only way in
+            if (depth == 0)
+                score += 2; // top-level exe in the collapsed game dir
+            switch (f.Length)
+            {
+                case > 50 << 20:
+                    score += 3;
+                    break;
+                case < 300 << 10:
+                    score -= 2; // real games aren't tiny
+                    break;
+            }
+            list.Add(new Candidate(rel, f.Length, depth, score));
         }
     }
 
@@ -155,14 +166,25 @@ public static class ExeFinder
         new(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
 
     private static HashSet<string> Tokens(string s) =>
-        s.ToLowerInvariant()
-            .Split(
-                [' ', '-', '_', '.', ':', '\'', '’', '(', ')', '[', ']'],
-                StringSplitOptions.RemoveEmptyEntries
-            )
-            .Where(t =>
-                t.Length > 1
-                && t is not ("the" or "of" or "and" or "a" or "an" or "win64" or "win32" or "exe")
-            )
-            .ToHashSet();
+        [
+            .. s.ToLowerInvariant()
+                .Split(
+                    [' ', '-', '_', '.', ':', '\'', '’', '(', ')', '[', ']'],
+                    StringSplitOptions.RemoveEmptyEntries
+                )
+                .Where(t =>
+                    t.Length > 1
+                    && t
+                        is not (
+                            "the"
+                            or "of"
+                            or "and"
+                            or "a"
+                            or "an"
+                            or "win64"
+                            or "win32"
+                            or "exe"
+                        )
+                ),
+        ];
 }

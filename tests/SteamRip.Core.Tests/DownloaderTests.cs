@@ -77,7 +77,10 @@ public class DownloaderTests : IAsyncLifetime
                     else
                         ctx.Response.Close();
                 }
-                catch { }
+                catch
+                {
+                    // client went away mid-response, which some tests provoke on purpose
+                }
             });
         }
     }

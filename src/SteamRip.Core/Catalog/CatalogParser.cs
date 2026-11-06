@@ -7,26 +7,19 @@ namespace SteamRip.Core.Catalog;
 /// <summary>Turns a WordPress REST <c>/wp/v2/posts</c> JSON array into <see cref="CatalogPost"/>s.</summary>
 public static partial class CatalogParser
 {
-    [GeneratedRegex("<a\\b[^>]*\\bshortc-button\\b[^>]*>", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<a\b[^>]*\bshortc-button\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex MirrorAnchor();
 
     [GeneratedRegex("href=\"([^\"]+)\"", RegexOptions.IgnoreCase)]
     private static partial Regex Href();
 
-    [GeneratedRegex("Game Size:\\s*</strong>\\s*([0-9.,]+\\s*[KMGT]B)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"Game Size:\s*</strong>\s*([0-9.,]+\s*[KMGT]B)", RegexOptions.IgnoreCase)]
     private static partial Regex GameSize();
 
     public static IReadOnlyList<CatalogPost> Parse(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        var list = new List<CatalogPost>();
-        foreach (var p in doc.RootElement.EnumerateArray())
-        {
-            var post = ParseOne(p);
-            if (post is not null)
-                list.Add(post);
-        }
-        return list;
+        return [.. doc.RootElement.EnumerateArray().Select(ParseOne).OfType<CatalogPost>()];
     }
 
     public static CatalogPost? ParseOne(JsonElement p)
@@ -50,16 +43,14 @@ public static partial class CatalogParser
             )
                 build = NullIfEmpty(tm.GetString());
             if (acf.TryGetProperty("steam_app_id", out var sa))
-            {
-                if (sa.ValueKind == JsonValueKind.Number && sa.TryGetInt64(out var n) && n > 0)
-                    appId = n;
-                else if (
-                    sa.ValueKind == JsonValueKind.String
-                    && long.TryParse(sa.GetString(), out var s)
-                    && s > 0
-                )
-                    appId = s;
-            }
+                appId = sa switch
+                {
+                    { ValueKind: JsonValueKind.Number } when sa.TryGetInt64(out var n) && n > 0 =>
+                        n,
+                    { ValueKind: JsonValueKind.String }
+                        when long.TryParse(sa.GetString(), out var s) && s > 0 => s,
+                    _ => appId,
+                };
         }
 
         var mirrors = new List<Mirror>();

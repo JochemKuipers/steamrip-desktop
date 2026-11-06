@@ -89,36 +89,38 @@ public static class SaveLocator
     /// <summary>Directories inside <paramref name="gameRoot"/> that are Wine prefixes. These must survive a reinstall.</summary>
     public static IReadOnlyList<string> FindWinePrefixes(string gameRoot)
     {
-        var list = new List<string>();
         if (!Directory.Exists(gameRoot))
-            return list;
-        foreach (var d in Directory.EnumerateDirectories(gameRoot))
-            if (IsWinePrefix(d))
-                list.Add(Path.GetFileName(d));
-        return list;
+            return [];
+        return
+        [
+            .. Directory
+                .EnumerateDirectories(gameRoot)
+                .Where(IsWinePrefix)
+                .Select(d => Path.GetFileName(d)),
+        ];
     }
 
     /// <summary>Goldberg/GSE save dirs for <paramref name="steamAppId"/> inside the game's own Wine prefix(es); on Windows, the real user profile.</summary>
     public static IReadOnlyList<string> FindEmulatorSaves(long steamAppId, string gameRoot)
     {
-        var found = new List<string>();
-        var userDirs = new List<string>();
-        foreach (var prefix in FindWinePrefixes(gameRoot))
-        {
-            var users = Path.Combine(gameRoot, prefix, "drive_c", "users");
-            if (Directory.Exists(users))
-                userDirs.AddRange(Directory.EnumerateDirectories(users));
-        }
+        var userDirs = FindWinePrefixes(gameRoot)
+            .Select(prefix => Path.Combine(gameRoot, prefix, "drive_c", "users"))
+            .Where(Directory.Exists)
+            .SelectMany(Directory.EnumerateDirectories)
+            .ToList();
         if (OperatingSystem.IsWindows())
             userDirs.Add(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
-        foreach (var user in userDirs.Distinct())
-        foreach (var emu in EmuSaveDirNames)
-        {
-            var p = Path.Combine(user, "AppData", "Roaming", emu, steamAppId.ToString());
-            if (Directory.Exists(p))
-                found.Add(p);
-        }
-        return found;
+        return
+        [
+            .. userDirs
+                .Distinct()
+                .SelectMany(user =>
+                    EmuSaveDirNames.Select(emu =>
+                        Path.Combine(user, "AppData", "Roaming", emu, steamAppId.ToString())
+                    )
+                )
+                .Where(Directory.Exists),
+        ];
     }
 }

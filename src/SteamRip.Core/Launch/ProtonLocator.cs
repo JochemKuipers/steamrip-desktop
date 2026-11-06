@@ -61,14 +61,16 @@ public static partial class ProtonLocator
             }
         }
         // Preference: CachyOS / GE builds first (they carry the game fixes), then Steam's own, then anything else.
-        return found
-            .OrderBy(p =>
-                p.Name.Contains("cachyos", StringComparison.OrdinalIgnoreCase) ? 0
-                : p.Name.Contains("GE", StringComparison.Ordinal) ? 1
-                : p.Name.Contains("Experimental", StringComparison.OrdinalIgnoreCase) ? 2
-                : 3
-            )
-            .ThenByDescending(p => p.Name)
-            .ToList();
+        return
+        [
+            .. found
+                .OrderBy(p =>
+                    p.Name.Contains("cachyos", StringComparison.OrdinalIgnoreCase) ? 0
+                    : p.Name.Contains("GE", StringComparison.Ordinal) ? 1
+                    : p.Name.Contains("Experimental", StringComparison.OrdinalIgnoreCase) ? 2
+                    : 3
+                )
+                .ThenByDescending(p => p.Name),
+        ];
     }
 }

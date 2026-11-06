@@ -62,12 +62,13 @@ public sealed class Settings
         try
         {
             if (File.Exists(path))
-                return JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json) ?? new();
+                return JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json)
+                    ?? new Settings();
         }
         catch
         { /* corrupt settings → defaults; the user can fix in UI */
         }
-        return new();
+        return new Settings();
     }
 
     public void Save(string? path = null)

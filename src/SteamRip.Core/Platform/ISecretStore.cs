@@ -64,7 +64,10 @@ internal sealed class SecretToolStore(string exe, ISecretStore fallback) : ISecr
                 return;
             }
         }
-        catch { }
+        catch
+        {
+            // secret-tool missing or the keyring is locked; the file fallback below still stores it
+        }
         fallback.Write(key, value);
     }
 

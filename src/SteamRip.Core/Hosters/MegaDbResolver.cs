@@ -6,16 +6,12 @@ using SteamRip.Core.Catalog;
 namespace SteamRip.Core.Hosters;
 
 /// <summary>MegaDB: plain HTTP with Referer steamrip.com, a server-enforced wait, then a cookie-bound 302 to the storage node. The file GET needs Referer megadb.net + the cookie jar.</summary>
-public sealed class MegaDbResolver : IHostResolver
+public sealed class MegaDbResolver(
+    Func<Task>? delayOverride = null,
+    ILogger<MegaDbResolver>? logger = null
+) : IHostResolver
 {
-    private readonly Func<Task>? _delayOverride;
-    private readonly ILogger _log;
-
-    public MegaDbResolver(Func<Task>? delayOverride = null, ILogger<MegaDbResolver>? logger = null)
-    {
-        _delayOverride = delayOverride;
-        _log = logger ?? NullLogger<MegaDbResolver>.Instance;
-    }
+    private readonly ILogger _log = logger ?? NullLogger<MegaDbResolver>.Instance;
 
     public Hoster Host => Hoster.MegaDb;
 
@@ -25,13 +21,13 @@ public sealed class MegaDbResolver : IHostResolver
     )
     {
         var jar = new CookieContainer();
-        using var handler = new HttpClientHandler
+        var handler = new HttpClientHandler
         {
             CookieContainer = jar,
             AllowAutoRedirect = false,
             AutomaticDecompression = DecompressionMethods.All,
         };
-        using var http = new HttpClient(handler);
+        using var http = new HttpClient(handler); // disposes the handler too
         http.DefaultRequestHeaders.TryAddWithoutValidation(
             "User-Agent",
             Downloads.Downloader.DefaultUserAgent
@@ -69,8 +65,8 @@ public sealed class MegaDbResolver : IHostResolver
             "MegaDB: waiting {Seconds}s (server-enforced) before requesting the token URL",
             parsed.waitSeconds + 2
         );
-        if (_delayOverride is not null)
-            await _delayOverride();
+        if (delayOverride is not null)
+            await delayOverride();
         else
             await Task.Delay(TimeSpan.FromSeconds(parsed.waitSeconds + 2), ct);
 

@@ -6,10 +6,10 @@ namespace SteamRip.Core.Hosters;
 /// <summary>Pure parsers for hoster landing pages. Kept separate from the network code so they can be fixture-tested.</summary>
 public static partial class HostPages
 {
-    [GeneratedRegex("<a\\b[^>]*\\bbtn-main\\b[^>]*>")]
+    [GeneratedRegex(@"<a\b[^>]*\bbtn-main\b[^>]*>")]
     private static partial Regex FileDitchAnchor();
 
-    [GeneratedRegex("href=\"(https://[^\"]+)\"")]
+    [GeneratedRegex("""href="(https://[^"]+)""")]
     private static partial Regex Href();
 
     [GeneratedRegex("<title>([^<]*)</title>")]
@@ -49,13 +49,13 @@ public static partial class HostPages
         return (url, expires, string.IsNullOrEmpty(title) ? null : title);
     }
 
-    [GeneratedRegex("hx-get=\"(/[^\"]+/download\\?t=[^\"&]+)\"")]
+    [GeneratedRegex("""hx-get="(/[^"]+/download\?t=[^"&]+)""")]
     private static partial Regex BzzhrHx();
 
-    [GeneratedRegex("MD5:\\s*(?:<[^>]*>\\s*)*([a-fA-F0-9]{32})")]
+    [GeneratedRegex(@"MD5:\s*(?:<[^>]*>\s*)*([a-fA-F0-9]{32})")]
     private static partial Regex Md5();
 
-    [GeneratedRegex("SHA-256:\\s*(?:<[^>]*>\\s*)*([a-fA-F0-9]{64})")]
+    [GeneratedRegex(@"SHA-256:\s*(?:<[^>]*>\s*)*([a-fA-F0-9]{64})")]
     private static partial Regex Sha256();
 
     public static (string HxPath, string? Md5, string? Sha256, string? FileName) ParseBzzhr(
@@ -78,13 +78,13 @@ public static partial class HostPages
         );
     }
 
-    [GeneratedRegex("var finalDownloadUrl\\s*=\\s*'([^']+)'")]
+    [GeneratedRegex(@"var finalDownloadUrl\s*=\s*'([^']+)'")]
     private static partial Regex MegaDbFinal();
 
-    [GeneratedRegex("var seconds\\s*=\\s*(\\d+)")]
+    [GeneratedRegex(@"var seconds\s*=\s*(\d+)")]
     private static partial Regex MegaDbSeconds();
 
-    [GeneratedRegex("MD5:\\s*(?:<[^>]*>\\s*)*([a-fA-F0-9]{32,64})")]
+    [GeneratedRegex(@"MD5:\s*(?:<[^>]*>\s*)*([a-fA-F0-9]{32,64})")]
     private static partial Regex MegaDbHash();
 
     public static (string PtUrl, int WaitSeconds, string? Hash, string? FileName) ParseMegaDb(

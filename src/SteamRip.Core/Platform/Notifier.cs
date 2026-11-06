@@ -46,14 +46,12 @@ public sealed class Notifier(ILogger<Notifier>? logger = null) : INotifier
             }
             else if (OperatingSystem.IsWindows())
             {
-                var script = $$"""
+                var t = Esc(title);
+                var b = Esc(body);
+                var script = $"""
                     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
                     $xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
-                    $t = $xml.GetElementsByTagName('text'); $t[0].AppendChild($xml.CreateTextNode('{{Esc(
-                        title
-                    )}}')) | Out-Null; $t[1].AppendChild($xml.CreateTextNode('{{Esc(
-                        body
-                    )}}')) | Out-Null
+                    $t = $xml.GetElementsByTagName('text'); $t[0].AppendChild($xml.CreateTextNode('{t}')) | Out-Null; $t[1].AppendChild($xml.CreateTextNode('{b}')) | Out-Null
                     [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('SteamRIP Desktop').Show([Windows.UI.Notifications.ToastNotification]::new($xml))
                     """;
                 await RunAsync("powershell", "-NoProfile", "-NonInteractive", "-Command", script);
@@ -92,7 +90,10 @@ public sealed class Notifier(ILogger<Notifier>? logger = null) : INotifier
             {
                 p.Kill();
             }
-            catch { }
+            catch
+            {
+                // the notifier already exited on its own
+            }
         }
     }
 }

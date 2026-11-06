@@ -38,9 +38,9 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         _running.TryGetValue(postId, out var r) && !r.Process.HasExited;
 
     public IReadOnlyCollection<long> RunningIds =>
-        _running.Where(kv => !kv.Value.Process.HasExited).Select(kv => kv.Key).ToList();
+        [.. _running.Where(kv => !kv.Value.Process.HasExited).Select(kv => kv.Key)];
 
-    public string Describe() =>
+    public static string Describe() =>
         OperatingSystem.IsWindows()
             ? "native"
             : $"umu-run: {UmuPath ?? "missing"}, wine: {WinePath ?? "missing"}";
@@ -117,15 +117,6 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         var started = DateTime.UtcNow;
         var sw = Stopwatch.StartNew();
         var tail = new ConcurrentQueue<string>();
-        void Keep(string? line)
-        {
-            if (line is null)
-                return;
-            tail.Enqueue(line);
-            while (tail.Count > 40)
-                tail.TryDequeue(out _);
-            _log.LogTrace("[{Name}] {Line}", spec.Name, line);
-        }
         proc.OutputDataReceived += (_, e) => Keep(e.Data);
         proc.ErrorDataReceived += (_, e) => Keep(e.Data);
         proc.Exited += (_, _) =>
@@ -172,6 +163,16 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         _running[spec.PostId] = running;
         Started?.Invoke(spec.PostId);
         return Task.FromResult(running);
+
+        void Keep(string? line)
+        {
+            if (line is null)
+                return;
+            tail.Enqueue(line);
+            while (tail.Count > 40)
+                tail.TryDequeue(out _);
+            _log.LogTrace("[{Name}] {Line}", spec.Name, line);
+        }
     }
 
     private readonly ConcurrentDictionary<long, byte> _stopped = new();
@@ -190,31 +191,30 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         {
             _log.LogWarning("Kill failed: {Error}", e.Message);
         }
-        if (!OperatingSystem.IsWindows() && UmuPath is not null)
+        if (OperatingSystem.IsWindows() || UmuPath is not { } umu)
+            return;
+        // Wine processes outlive the umu wrapper; ask the prefix's wineserver to shut everything down.
+        try
         {
-            // Wine processes outlive the umu wrapper; ask the prefix's wineserver to shut everything down.
-            try
+            var psi = new ProcessStartInfo(umu)
             {
-                var psi = new ProcessStartInfo(UmuPath)
-                {
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                };
-                psi.ArgumentList.Add("wineboot");
-                psi.ArgumentList.Add("-k");
-                psi.Environment["WINEPREFIX"] = PrefixDir(r.Spec.GameRoot);
-                psi.Environment["GAMEID"] = "umu-default";
-                if (!string.IsNullOrEmpty(r.Spec.ProtonPath))
-                    psi.Environment["PROTONPATH"] = r.Spec.ProtonPath;
-                using var p = Process.Start(psi);
-                p?.WaitForExit(15000);
-            }
-            catch (Exception e)
-            {
-                _log.LogDebug("wineboot -k failed: {Error}", e.Message);
-            }
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            psi.ArgumentList.Add("wineboot");
+            psi.ArgumentList.Add("-k");
+            psi.Environment["WINEPREFIX"] = PrefixDir(r.Spec.GameRoot);
+            psi.Environment["GAMEID"] = "umu-default";
+            if (!string.IsNullOrEmpty(r.Spec.ProtonPath))
+                psi.Environment["PROTONPATH"] = r.Spec.ProtonPath;
+            using var p = Process.Start(psi);
+            p?.WaitForExit(15000);
+        }
+        catch (Exception e)
+        {
+            _log.LogDebug("wineboot -k failed: {Error}", e.Message);
         }
     }
 

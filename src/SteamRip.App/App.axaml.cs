@@ -52,8 +52,7 @@ public partial class App : Application
                 ?.FirstOrDefault()
                 ?.Menu?.Items.OfType<NativeMenuItem>()
                 .FirstOrDefault(i => i.ToggleType == MenuItemToggleType.CheckBox);
-            if (pause is not null)
-                pause.IsChecked = Services.Settings.AutoUpdatesPaused;
+            pause?.IsChecked = Services.Settings.AutoUpdatesPaused;
 
             WatchShowRequests();
             desktop.ShutdownRequested += async (_, _) => await Services.DisposeAsync();
@@ -112,30 +111,25 @@ public partial class App : Application
             {
                 EnableRaisingEvents = true,
             };
-            _showWatcher.Created += (_, _) =>
-                Dispatcher.UIThread.Post(() =>
-                {
-                    try
-                    {
-                        File.Delete(Program.ShowRequestPath);
-                    }
-                    catch { }
-                    ShowWindow();
-                });
-            _showWatcher.Changed += (_, _) =>
-                Dispatcher.UIThread.Post(() =>
-                {
-                    try
-                    {
-                        File.Delete(Program.ShowRequestPath);
-                    }
-                    catch { }
-                    ShowWindow();
-                });
+            _showWatcher.Created += (_, _) => Dispatcher.UIThread.Post(OnShowRequested);
+            _showWatcher.Changed += (_, _) => Dispatcher.UIThread.Post(OnShowRequested);
         }
         catch
         { /* not fatal */
         }
+    }
+
+    private void OnShowRequested()
+    {
+        try
+        {
+            File.Delete(Program.ShowRequestPath);
+        }
+        catch
+        {
+            // marker already gone or locked by the other instance; showing the window is what matters
+        }
+        ShowWindow();
     }
 
     private void TrayIcon_OnClicked(object? sender, EventArgs e) => ShowWindow();
@@ -150,17 +144,16 @@ public partial class App : Application
 
     private void Pause_OnClick(object? sender, EventArgs e)
     {
-        if (sender is NativeMenuItem item)
-        {
-            Services.Settings.AutoUpdatesPaused = item.IsChecked;
-            Services.Log.LogInformation(
-                "Tray: auto-updates {State}",
-                item.IsChecked ? "paused" : "resumed"
-            );
-            Services.Settings.Save();
-            if (!item.IsChecked)
-                Services.Updates.CheckForUpdates();
-        }
+        if (sender is not NativeMenuItem item)
+            return;
+        Services.Settings.AutoUpdatesPaused = item.IsChecked;
+        Services.Log.LogInformation(
+            "Tray: auto-updates {State}",
+            item.IsChecked ? "paused" : "resumed"
+        );
+        Services.Settings.Save();
+        if (!item.IsChecked)
+            Services.Updates.CheckForUpdates();
     }
 
     private void Quit_OnClick(object? sender, EventArgs e)
@@ -272,7 +265,7 @@ public sealed class AppServices : IAsyncDisposable
         var launcher = new GameLauncher(loggers.CreateLogger<GameLauncher>());
         log.LogInformation(
             "Launcher: {Runner}; Proton builds: [{Protons}]; default {Default}",
-            launcher.Describe(),
+            GameLauncher.Describe(),
             string.Join(", ", ProtonLocator.Find().Select(p => p.Name)),
             string.IsNullOrEmpty(settings.DefaultProtonPath)
                 ? "umu default"

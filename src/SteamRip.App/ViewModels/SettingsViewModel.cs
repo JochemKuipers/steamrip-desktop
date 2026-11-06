@@ -11,48 +11,48 @@ public partial class SettingsViewModel : ObservableObject
     private readonly AppServices _s;
 
     [ObservableProperty]
-    private string _libraryRoot;
+    public partial string LibraryRoot { get; set; }
 
     [ObservableProperty]
-    private string _downloadsRoot;
+    public partial string DownloadsRoot { get; set; }
 
     [ObservableProperty]
-    private ProtonBuild? _defaultProton;
+    public partial ProtonBuild? DefaultProton { get; set; }
     public ObservableCollection<ProtonBuild> Protons { get; } = [];
-    public string LauncherLine => "Runner: " + _s.Launcher.Describe();
+    public string LauncherLine => "Runner: " + GameLauncher.Describe();
 
     [ObservableProperty]
-    private string _flareSolverrUrl;
+    public partial string FlareSolverrUrl { get; set; }
 
     [ObservableProperty]
-    private int _checkIntervalMinutes;
+    public partial int CheckIntervalMinutes { get; set; }
 
     [ObservableProperty]
-    private bool _notifyNewGames;
+    public partial bool NotifyNewGames { get; set; }
 
     [ObservableProperty]
-    private bool _startHidden;
+    public partial bool StartHidden { get; set; }
 
     [ObservableProperty]
-    private bool _autostart;
+    public partial bool Autostart { get; set; }
 
     [ObservableProperty]
-    private bool _deleteArchiveAfterInstall;
+    public partial bool DeleteArchiveAfterInstall { get; set; }
 
     [ObservableProperty]
-    private int _keepBackups;
+    public partial int KeepBackups { get; set; }
 
     [ObservableProperty]
-    private bool _verboseLogging;
+    public partial bool VerboseLogging { get; set; }
 
     [ObservableProperty]
-    private string _hosterOrder;
+    public partial string HosterOrder { get; set; }
 
     [ObservableProperty]
-    private string _saveStatus = "";
+    public partial string SaveStatus { get; set; } = "";
 
     [ObservableProperty]
-    private string _solverTest = "";
+    public partial string SolverTest { get; set; } = "";
 
     public string ToolsLine => _s.Archive.Describe();
     public string SecretsLine => "Secrets backend: " + _s.Secrets.Backend;
@@ -63,21 +63,21 @@ public partial class SettingsViewModel : ObservableObject
     {
         _s = s;
         var c = s.Settings;
-        _libraryRoot = c.LibraryRoot;
-        _downloadsRoot = c.DownloadsRoot;
+        LibraryRoot = c.LibraryRoot;
+        DownloadsRoot = c.DownloadsRoot;
         Protons.Add(new ProtonBuild("umu default (latest GE-Proton, downloaded by umu)", ""));
         foreach (var p in ProtonLocator.Find())
             Protons.Add(p);
-        _defaultProton = Protons.FirstOrDefault(p => p.Path == c.DefaultProtonPath) ?? Protons[0];
-        _flareSolverrUrl = c.FlareSolverrUrl;
-        _checkIntervalMinutes = c.CheckIntervalMinutes;
-        _notifyNewGames = c.NotifyNewGames;
-        _startHidden = c.StartHidden;
-        _autostart = Core.Platform.Autostart.IsEnabled();
-        _deleteArchiveAfterInstall = c.DeleteArchiveAfterInstall;
-        _keepBackups = c.KeepBackups;
-        _hosterOrder = string.Join(", ", c.HosterOrder);
-        _verboseLogging = c.VerboseLogging;
+        DefaultProton = Protons.FirstOrDefault(p => p.Path == c.DefaultProtonPath) ?? Protons[0];
+        FlareSolverrUrl = c.FlareSolverrUrl;
+        CheckIntervalMinutes = c.CheckIntervalMinutes;
+        NotifyNewGames = c.NotifyNewGames;
+        StartHidden = c.StartHidden;
+        Autostart = Core.Platform.Autostart.IsEnabled();
+        DeleteArchiveAfterInstall = c.DeleteArchiveAfterInstall;
+        KeepBackups = c.KeepBackups;
+        HosterOrder = string.Join(", ", c.HosterOrder);
+        VerboseLogging = c.VerboseLogging;
     }
 
     [RelayCommand]
@@ -93,9 +93,13 @@ public partial class SettingsViewModel : ObservableObject
         c.StartHidden = StartHidden;
         c.DeleteArchiveAfterInstall = DeleteArchiveAfterInstall;
         c.KeepBackups = Math.Max(0, KeepBackups);
-        c.HosterOrder = HosterOrder
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
+        c.HosterOrder =
+        [
+            .. HosterOrder.Split(
+                ',',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries
+            ),
+        ];
         c.Autostart = Autostart;
         c.VerboseLogging = VerboseLogging;
         _s.LogFile.MinimumLevel = VerboseLogging ? LogLevel.Debug : LogLevel.Information;

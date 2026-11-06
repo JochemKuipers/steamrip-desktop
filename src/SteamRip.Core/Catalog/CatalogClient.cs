@@ -25,32 +25,29 @@ public sealed class CatalogClient(
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             using var resp = await http.GetAsync(url, ct);
-            if (resp.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            switch (resp.StatusCode)
             {
-                _log.LogDebug("REST page {Page}: 400 → past the last page", page);
-                return [];
-            }
-            if (
-                resp.StatusCode
-                    is System.Net.HttpStatusCode.TooManyRequests
-                        or System.Net.HttpStatusCode.ServiceUnavailable
-                        or System.Net.HttpStatusCode.BadGateway
-                && attempt <= 6
-            )
-            {
-                // The site rate-limits bursts of REST calls (seen at ~40 pages). Honour Retry-After, else back off geometrically.
-                var wait =
-                    resp.Headers.RetryAfter?.Delta
-                    ?? TimeSpan.FromSeconds(Math.Min(120, 10 * Math.Pow(2, attempt - 1)));
-                _log.LogWarning(
-                    "REST page {Page}: HTTP {Status}, backing off {Wait}s (attempt {Attempt}/6)",
-                    page,
-                    (int)resp.StatusCode,
-                    (int)wait.TotalSeconds,
-                    attempt
-                );
-                await Task.Delay(wait, ct);
-                continue;
+                case System.Net.HttpStatusCode.BadRequest:
+                    _log.LogDebug("REST page {Page}: 400 → past the last page", page);
+                    return [];
+                case System.Net.HttpStatusCode.TooManyRequests
+                or System.Net.HttpStatusCode.ServiceUnavailable
+                or System.Net.HttpStatusCode.BadGateway when attempt <= 6:
+                {
+                    // The site rate-limits bursts of REST calls (seen at ~40 pages). Honour Retry-After, else back off geometrically.
+                    var wait =
+                        resp.Headers.RetryAfter?.Delta
+                        ?? TimeSpan.FromSeconds(Math.Min(120, 10 * Math.Pow(2, attempt - 1)));
+                    _log.LogWarning(
+                        "REST page {Page}: HTTP {Status}, backing off {Wait}s (attempt {Attempt}/6)",
+                        page,
+                        (int)resp.StatusCode,
+                        (int)wait.TotalSeconds,
+                        attempt
+                    );
+                    await Task.Delay(wait, ct);
+                    continue;
+                }
             }
             resp.EnsureSuccessStatusCode();
             var posts = CatalogParser.Parse(await resp.Content.ReadAsStringAsync(ct));

@@ -57,8 +57,6 @@ public sealed class UpdateService : IAsyncDisposable
         _launcher.Exited += OnGameExited;
     }
 
-    public GameLauncher Launcher => _launcher;
-
     // ---- play ----
 
     public async Task PlayAsync(long postId)
@@ -117,7 +115,7 @@ public sealed class UpdateService : IAsyncDisposable
         get
         {
             lock (_jobs)
-                return _jobs.ToList();
+                return [.. _jobs];
         }
     }
     public Job? Current { get; private set; }
@@ -167,11 +165,10 @@ public sealed class UpdateService : IAsyncDisposable
                     newPosts.Add(p);
                 batch.Add(p);
                 count++;
-                if (batch.Count >= 100)
-                {
-                    _db.UpsertPosts(batch);
-                    batch.Clear();
-                }
+                if (batch.Count < 100)
+                    continue;
+                _db.UpsertPosts(batch);
+                batch.Clear();
             }
             if (batch.Count > 0)
                 _db.UpsertPosts(batch);
@@ -306,12 +303,11 @@ public sealed class UpdateService : IAsyncDisposable
             job.Stage
         );
         job.Cts.Cancel();
-        if (job.Stage == JobStage.Queued)
-        {
-            job.Set(JobStage.Cancelled, "Cancelled");
-            RestoreStateAfterFailure(job.Post.Id, null);
-            JobsChanged?.Invoke();
-        }
+        if (job.Stage != JobStage.Queued)
+            return;
+        job.Set(JobStage.Cancelled, "Cancelled");
+        RestoreStateAfterFailure(job.Post.Id, null);
+        JobsChanged?.Invoke();
     }
 
     public void ClearFinished()
@@ -429,7 +425,10 @@ public sealed class UpdateService : IAsyncDisposable
                 {
                     File.Delete(archivePath);
                 }
-                catch { }
+                catch
+                {
+                    // leaving the archive behind is harmless; the next install overwrites it
+                }
             }
 
             var exe =
@@ -703,21 +702,27 @@ public sealed class UpdateService : IAsyncDisposable
     {
         _log.LogInformation("UpdateService stopping");
         _launcher.Exited -= OnGameExited;
-        _cts.Cancel();
+        await _cts.CancelAsync();
         foreach (var j in Jobs)
-            j.Cts.Cancel();
+            await j.Cts.CancelAsync();
         if (_worker is not null)
             try
             {
                 await _worker;
             }
-            catch { }
+            catch
+            {
+                // the worker loop ends with OperationCanceledException by design
+            }
         if (_scheduler is not null)
             try
             {
                 await _scheduler;
             }
-            catch { }
+            catch
+            {
+                // same as above
+            }
     }
 }
 

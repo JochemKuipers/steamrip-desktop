@@ -5,6 +5,7 @@ namespace SteamRip.Core.Data;
 
 public enum InstallState
 {
+    // ReSharper disable once UnusedMember.Global -- value 0 is the column default; it is stored as an int, so it must stay
     NotInstalled,
     Queued,
     Downloading,
@@ -35,7 +36,7 @@ public sealed record InstalledGame(
 public sealed class Database : IDisposable
 {
     private readonly SqliteConnection _db;
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     public Database(string path)
     {

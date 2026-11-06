@@ -28,7 +28,7 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
     {
         var part = destinationPath + ".part";
         Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-        long have = File.Exists(part) ? new FileInfo(part).Length : 0;
+        var have = File.Exists(part) ? new FileInfo(part).Length : 0L;
 
         using var req = new HttpRequestMessage(HttpMethod.Get, src.Url);
         foreach (var (k, v) in src.Headers)
@@ -107,7 +107,7 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
                 );
             if (!resumed)
                 have = 0;
-            long? total =
+            var total =
                 resp.Content.Headers.ContentRange?.Length
                 ?? (
                     resp.Content.Headers.ContentLength is { } len
@@ -144,17 +144,16 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
                     sinceTick = 0;
                     lastTick = now;
                 }
-                if ((now - lastLog).TotalSeconds >= 30)
-                {
-                    _log.LogDebug(
-                        "… {Have}/{Total} bytes ({Pct}%), avg {Rate:0.0} MiB/s",
-                        have,
-                        total,
-                        total is > 0 ? have * 100 / total : -1,
-                        (have - startBytes) / (1024.0 * 1024.0) / now.TotalSeconds
-                    );
-                    lastLog = now;
-                }
+                if ((now - lastLog).TotalSeconds < 30)
+                    continue;
+                _log.LogDebug(
+                    "… {Have}/{Total} bytes ({Pct}%), avg {Rate:0.0} MiB/s",
+                    have,
+                    total,
+                    total is > 0 ? have * 100 / total : -1,
+                    (have - startBytes) / (1024.0 * 1024.0) / now.TotalSeconds
+                );
+                lastLog = now;
             }
             progress?.Report(new DownloadProgress(have, total, 0));
             _log.LogInformation(

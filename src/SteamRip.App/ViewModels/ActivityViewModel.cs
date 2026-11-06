@@ -10,7 +10,7 @@ public partial class ActivityViewModel : ObservableObject
     private readonly AppServices _s;
     public ObservableCollection<ActivityLine> Events { get; } = [];
     public ObservableCollection<string> Live { get; } = [];
-    public string LogDir { get; private set; }
+    public string LogDir { get; }
 
     [RelayCommand]
     private void OpenLogDir() => LibraryViewModel.OpenPath(LogDir);

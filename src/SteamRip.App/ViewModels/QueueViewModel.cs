@@ -13,10 +13,10 @@ public partial class QueueViewModel : ObservableObject
     public ObservableCollection<JobItem> Items { get; } = [];
 
     [ObservableProperty]
-    private bool _isEmpty = true;
+    public partial bool IsEmpty { get; set; } = true;
 
     [ObservableProperty]
-    private bool _paused;
+    public partial bool Paused { get; set; }
 
     public QueueViewModel(AppServices s)
     {
@@ -73,28 +73,25 @@ public sealed partial class JobItem : ObservableObject
     public Job Job { get; }
 
     [ObservableProperty]
-    private string _status;
+    public partial string Status { get; set; }
 
     [ObservableProperty]
-    private double _fraction;
+    public partial double Fraction { get; set; }
 
     [ObservableProperty]
-    private bool _indeterminate;
+    public partial bool Indeterminate { get; set; }
 
     [ObservableProperty]
-    private bool _active;
+    public partial bool Active { get; set; }
 
     [ObservableProperty]
-    private bool _needsAttention;
+    public partial bool NeedsAttention { get; set; }
 
     [ObservableProperty]
-    private bool _failed;
+    public partial bool Failed { get; set; }
 
     [ObservableProperty]
-    private bool _done;
-
-    [ObservableProperty]
-    private string? _error;
+    public partial bool Done { get; set; }
 
     public string Name => Job.Post.Name;
     public string Kind => Job.IsUpdate ? "Update" : "Install";
@@ -106,7 +103,7 @@ public sealed partial class JobItem : ObservableObject
     {
         _owner = owner;
         Job = job;
-        _status = job.Status;
+        Status = job.Status;
         job.Changed += _ => Dispatcher.UIThread.Post(Sync);
         Sync();
     }
@@ -125,13 +122,9 @@ public sealed partial class JobItem : ObservableObject
         NeedsAttention = Job.Stage == JobStage.NeedsAttention;
         Failed = Job.Stage is JobStage.Failed or JobStage.Cancelled;
         Done = Job.Stage == JobStage.Done;
-        Error = Job.Error;
     }
 
-    public void SetBusy(string text)
-    {
-        Status = text;
-    }
+    public void SetBusy(string text) => Status = text;
 
     [RelayCommand]
     private void Cancel() => _owner.Cancel(this);

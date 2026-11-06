@@ -34,19 +34,8 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
         try
         {
             Directory.CreateDirectory(dir);
-            if (!File.Exists(file))
-            {
-                if (
-                    File.Exists(missing)
-                    && File.GetLastWriteTimeUtc(missing) > DateTime.UtcNow.AddDays(-7)
-                )
-                    return null;
-                if (!await FetchAsync(id, file))
-                {
-                    File.WriteAllText(missing, "");
-                    return null;
-                }
-            }
+            if (!File.Exists(file) && !await EnsureFetchedAsync(id, file, missing))
+                return null;
             return await Task.Run(() =>
             {
                 using var s = File.OpenRead(file);
@@ -61,9 +50,23 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
             {
                 File.Delete(file);
             }
-            catch { }
+            catch
+            {
+                // a half-written file we could not remove will be overwritten by the next fetch
+            }
             return null;
         }
+    }
+
+    /// <summary>False when the CDN has no cover (recorded in the .missing marker) or said so within the last week.</summary>
+    private async Task<bool> EnsureFetchedAsync(long id, string file, string missing)
+    {
+        if (File.Exists(missing) && File.GetLastWriteTimeUtc(missing) > DateTime.UtcNow.AddDays(-7))
+            return false;
+        if (await FetchAsync(id, file))
+            return true;
+        await File.WriteAllTextAsync(missing, "");
+        return false;
     }
 
     private async Task<bool> FetchAsync(long id, string file)

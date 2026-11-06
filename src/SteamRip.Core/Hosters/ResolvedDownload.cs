@@ -21,7 +21,4 @@ public interface IHostResolver
 }
 
 public sealed class HostResolveException(Hoster host, string message, Exception? inner = null)
-    : Exception($"{host}: {message}", inner)
-{
-    public Hoster Host => host;
-}
+    : Exception($"{host}: {message}", inner);

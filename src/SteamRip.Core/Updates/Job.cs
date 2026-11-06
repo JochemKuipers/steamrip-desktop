@@ -26,7 +26,6 @@ public sealed class Job(CatalogPost post, bool isUpdate)
     public long Bytes { get; private set; }
     public long? Total { get; private set; }
     public string? Error { get; private set; }
-    public DateTime CreatedUtc { get; } = DateTime.UtcNow;
     public CancellationTokenSource Cts { get; } = new();
 
     /// <summary>Set when the user solved a challenge by hand; used for the first download attempt instead of the resolver chain.</summary>
