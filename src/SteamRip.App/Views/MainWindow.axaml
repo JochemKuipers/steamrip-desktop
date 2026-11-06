@@ -205,12 +205,13 @@
                               Header="{Binding AutoLabel}"
                               Command="{Binding ToggleAutoCommand}"
                             />
-                            <MenuItem Header="-" />
+                            <Separator />
                             <MenuItem
                               Header="Forget (keep files)"
                               Command="{Binding ForgetCommand}"
                             />
                             <MenuItem
+                              Classes="danger"
                               Header="Uninstall and delete files"
                               Command="{Binding DeleteCommand}"
                             />

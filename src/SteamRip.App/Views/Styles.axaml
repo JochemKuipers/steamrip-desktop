@@ -144,6 +144,29 @@
     <Setter Property="BorderBrush" Value="{StaticResource Line}" />
     <Setter Property="CornerRadius" Value="6" />
   </Style>
+  <!-- Menus: compact rows, rounded hover, a thin line as separator. -->
+  <Style Selector="MenuFlyoutPresenter">
+    <Setter Property="MinWidth" Value="220" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="MenuItem">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="MenuItem.danger">
+    <Setter Property="Foreground" Value="{StaticResource Red}" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter Separator">
+    <Setter Property="Background" Value="{StaticResource Line}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="8,4" />
+  </Style>
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="14" />
+  </Style>
   <Style Selector="ToggleSwitch">
     <Setter Property="Foreground" Value="{StaticResource Text}" />
   </Style>
