@@ -22,7 +22,8 @@
           </DockPanel>
         </StackPanel>
         <TextBlock DockPanel.Dock="Top" Classes="muted" IsVisible="{Binding IsEmpty}" TextWrapping="Wrap"
-                   Text="Nothing installed through SteamRIP Desktop yet. Pick a game under Browse; it downloads, verifies, extracts into your library folder and stays current from then on." />
+                   Text="Nothing installed yet. Pick a game under Browse; it downloads, verifies, extracts into your library folder, gets its own Proton prefix on first launch, and stays current from then on." />
+        <TextBlock DockPanel.Dock="Top" Classes="red" Margin="0,0,0,10" TextWrapping="Wrap" Text="{Binding LastError}" IsVisible="{Binding LastError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
@@ -31,7 +32,9 @@
                   <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                     <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" Spacing="10">
                       <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+                      <Border Classes="pill" IsVisible="{Binding IsRunning}"><TextBlock FontSize="11" Classes="green" Text="Running" /></Border>
                       <TextBlock Classes="muted" Text="{Binding SizeText}" VerticalAlignment="Center" />
+                      <TextBlock Classes="muted" Text="{Binding Playtime}" VerticalAlignment="Center" />
                     </StackPanel>
                     <!-- Version ticket: installed → site. The arrow lights amber when they differ. -->
                     <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
@@ -41,16 +44,38 @@
                       <TextBlock Classes="mono muted" Text="{Binding SiteVersion}" IsVisible="{Binding !HasUpdate}" />
                       <TextBlock Classes="mono amber" Text="{Binding SiteVersion}" IsVisible="{Binding HasUpdate}" />
                     </StackPanel>
-                    <TextBlock Grid.Column="0" Grid.Row="2" Margin="0,6,0,0" Text="{Binding StatusLine}" TextWrapping="Wrap"
-                               Classes.muted="{Binding !NeedsAttention}" Classes.red="{Binding NeedsAttention}" />
+                    <StackPanel Grid.Column="0" Grid.Row="2" Margin="0,6,0,0" Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding StatusLine}" TextWrapping="Wrap" Classes.muted="{Binding !NeedsAttention}" Classes.red="{Binding NeedsAttention}" Classes.green="{Binding IsRunning}" />
+                      <TextBlock Classes="mono muted" FontSize="11" Text="{Binding ExeLine}" VerticalAlignment="Center" />
+                    </StackPanel>
                     <StackPanel Grid.Column="1" Grid.RowSpan="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                      <Button Classes="primary" Content="Update now" Command="{Binding UpdateNowCommand}" IsVisible="{Binding HasUpdate}" IsEnabled="{Binding IsIdle}" />
-                      <Button Classes="quiet" Content="{Binding AutoLabel}" Command="{Binding ToggleAutoCommand}" />
-                      <Button Classes="quiet" Content="Folder" Command="{Binding OpenFolderCommand}" />
-                      <Button Classes="quiet" Content="Page" Command="{Binding OpenPageCommand}" />
+                      <Button Classes="primary" Content="Play" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" IsEnabled="{Binding CanPlay}" MinWidth="72" />
+                      <Button Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsRunning}" MinWidth="72" />
+                      <Button Classes="quiet" Content="Update now" Command="{Binding UpdateNowCommand}" IsVisible="{Binding HasUpdate}" IsEnabled="{Binding IsIdle}" Foreground="{StaticResource Amber}" />
+                      <Button Classes="quiet" Content="Launch options">
+                        <Button.Flyout>
+                          <Flyout Placement="BottomEdgeAlignedRight">
+                            <StackPanel Spacing="8" Width="420">
+                              <TextBlock Classes="eyebrow" Text="EXECUTABLE" />
+                              <ComboBox ItemsSource="{Binding Exes}" SelectedItem="{Binding SelectedExe}" HorizontalAlignment="Stretch" FontFamily="{StaticResource Mono}" FontSize="12" />
+                              <TextBlock Classes="eyebrow" Text="PROTON" Margin="0,6,0,0" />
+                              <ComboBox ItemsSource="{Binding Protons}" SelectedItem="{Binding SelectedProton}" HorizontalAlignment="Stretch" />
+                              <TextBlock Classes="eyebrow" Text="EXTRA ARGUMENTS" Margin="0,6,0,0" />
+                              <TextBox Text="{Binding LaunchArgs}" Watermark="-windowed -nosplash" FontFamily="{StaticResource Mono}" FontSize="12" />
+                              <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
+                                <Button Classes="quiet" Content="Game folder" Command="{Binding OpenFolderCommand}" />
+                                <Button Classes="quiet" Content="Prefix folder" Command="{Binding OpenPrefixCommand}" />
+                                <Button Classes="quiet" Content="Site page" Command="{Binding OpenPageCommand}" />
+                              </StackPanel>
+                            </StackPanel>
+                          </Flyout>
+                        </Button.Flyout>
+                      </Button>
                       <Button Classes="quiet" Content="⋯">
                         <Button.Flyout>
                           <MenuFlyout>
+                            <MenuItem Header="{Binding AutoLabel}" Command="{Binding ToggleAutoCommand}" />
+                            <MenuItem Header="-" />
                             <MenuItem Header="Forget (keep files)" Command="{Binding ForgetCommand}" />
                             <MenuItem Header="Uninstall and delete files" Command="{Binding DeleteCommand}" />
                           </MenuFlyout>
@@ -214,15 +239,23 @@
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock FontWeight="SemiBold" Text="Folders" />
-              <TextBlock Classes="muted" Text="Games are extracted to &lt;library&gt;/&lt;game-slug&gt;. Point Heroic or Lutris at that folder. Archives land in the downloads folder and are deleted after install unless you say otherwise." TextWrapping="Wrap" />
+              <TextBlock Classes="muted" Text="Games are extracted to &lt;library&gt;/&lt;game-slug&gt;; each gets its own Wine prefix at &lt;game&gt;/prefix on first launch, so saves live with the game and survive updates. Archives land in the downloads folder and are deleted after install unless you say otherwise." TextWrapping="Wrap" />
               <TextBlock Text="Library folder" Classes="muted" /><TextBox Text="{Binding LibraryRoot}" />
               <TextBlock Text="Downloads folder" Classes="muted" /><TextBox Text="{Binding DownloadsRoot}" />
-              <TextBlock Text="Wine prefix roots (one per line) — searched for Goldberg/GSE save folders before an update" Classes="muted" TextWrapping="Wrap" />
-              <TextBox Text="{Binding PrefixRoots}" AcceptsReturn="True" MinHeight="70" FontFamily="{StaticResource Mono}" FontSize="12" />
               <StackPanel Orientation="Horizontal" Spacing="16">
                 <StackPanel><TextBlock Text="Save backups to keep per game" Classes="muted" /><NumericUpDown Value="{Binding KeepBackups}" Minimum="0" Maximum="10" Width="140" /></StackPanel>
                 <ToggleSwitch IsChecked="{Binding DeleteArchiveAfterInstall}" OnContent="Delete archive after install" OffContent="Keep archive after install" VerticalAlignment="Bottom" />
               </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock FontWeight="SemiBold" Text="Playing" />
+              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Games run through umu-run with the Proton build below (per-game override in Launch options). umu downloads its runtime on the first launch, so expect a wait that one time." />
+              <TextBlock Text="Default Proton" Classes="muted" />
+              <ComboBox ItemsSource="{Binding Protons}" SelectedItem="{Binding DefaultProton}" HorizontalAlignment="Stretch" />
+              <TextBlock Classes="mono muted" Text="{Binding LauncherLine}" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
 

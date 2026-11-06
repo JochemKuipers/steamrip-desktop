@@ -5,7 +5,8 @@ namespace SteamRip.Core.Data;
 
 public enum InstallState { NotInstalled, Queued, Downloading, Installing, Installed, Failed, NeedsAttention }
 
-public sealed record InstalledGame(long PostId, string Slug, string Name, string? InstalledVersion, string InstallPath, DateTime InstalledUtc, bool AutoUpdate, InstallState State, string? LastError);
+public sealed record InstalledGame(long PostId, string Slug, string Name, string? InstalledVersion, string InstallPath, DateTime InstalledUtc, bool AutoUpdate, InstallState State, string? LastError,
+    string? ExeRelative = null, string? ProtonPath = null, string? LaunchArgs = null, DateTime? LastPlayedUtc = null, long PlaytimeSeconds = 0);
 
 /// <summary>Hand-written SQLite schema with a migrations table. One file, WAL mode.</summary>
 public sealed class Database : IDisposable
@@ -38,6 +39,14 @@ public sealed class Database : IDisposable
             state INTEGER NOT NULL DEFAULT 0, last_error TEXT);
         CREATE TABLE events(id INTEGER PRIMARY KEY AUTOINCREMENT, at_utc TEXT NOT NULL, post_id INTEGER, kind TEXT NOT NULL, message TEXT NOT NULL);
         CREATE TABLE kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        """,
+        // 2: the app launches games itself
+        """
+        ALTER TABLE installs ADD COLUMN exe_rel TEXT;
+        ALTER TABLE installs ADD COLUMN proton TEXT;
+        ALTER TABLE installs ADD COLUMN launch_args TEXT;
+        ALTER TABLE installs ADD COLUMN last_played_utc TEXT;
+        ALTER TABLE installs ADD COLUMN playtime_sec INTEGER NOT NULL DEFAULT 0;
         """,
     ];
 
@@ -103,13 +112,15 @@ public sealed class Database : IDisposable
     {
         lock (_lock)
             Exec("""
-                 INSERT INTO installs(post_id,slug,name,installed_version,install_path,installed_utc,auto_update,state,last_error)
-                 VALUES($id,$slug,$name,$ver,$path,$at,$auto,$state,$err)
+                 INSERT INTO installs(post_id,slug,name,installed_version,install_path,installed_utc,auto_update,state,last_error,exe_rel,proton,launch_args,last_played_utc,playtime_sec)
+                 VALUES($id,$slug,$name,$ver,$path,$at,$auto,$state,$err,$exe,$proton,$args,$played,$playtime)
                  ON CONFLICT(post_id) DO UPDATE SET slug=excluded.slug,name=excluded.name,installed_version=excluded.installed_version,install_path=excluded.install_path,
-                   installed_utc=excluded.installed_utc,auto_update=excluded.auto_update,state=excluded.state,last_error=excluded.last_error
+                   installed_utc=excluded.installed_utc,auto_update=excluded.auto_update,state=excluded.state,last_error=excluded.last_error,
+                   exe_rel=excluded.exe_rel,proton=excluded.proton,launch_args=excluded.launch_args,last_played_utc=excluded.last_played_utc,playtime_sec=excluded.playtime_sec
                  """, null,
                 ("$id", g.PostId), ("$slug", g.Slug), ("$name", g.Name), ("$ver", g.InstalledVersion), ("$path", g.InstallPath), ("$at", Iso(g.InstalledUtc)),
-                ("$auto", g.AutoUpdate ? 1 : 0), ("$state", (int)g.State), ("$err", g.LastError));
+                ("$auto", g.AutoUpdate ? 1 : 0), ("$state", (int)g.State), ("$err", g.LastError),
+                ("$exe", g.ExeRelative), ("$proton", g.ProtonPath), ("$args", g.LaunchArgs), ("$played", g.LastPlayedUtc is { } lp ? Iso(lp) : null), ("$playtime", g.PlaytimeSeconds));
     }
 
     public void SetInstallState(long postId, InstallState state, string? error = null)
@@ -125,7 +136,10 @@ public sealed class Database : IDisposable
     private static InstalledGame ReadInstall(SqliteDataReader r) => new(
         r.GetInt64(r.GetOrdinal("post_id")), r.GetString(r.GetOrdinal("slug")), r.GetString(r.GetOrdinal("name")), Str(r, "installed_version"),
         r.GetString(r.GetOrdinal("install_path")), DateTime.Parse(r.GetString(r.GetOrdinal("installed_utc")), null, System.Globalization.DateTimeStyles.RoundtripKind),
-        r.GetInt32(r.GetOrdinal("auto_update")) != 0, (InstallState)r.GetInt32(r.GetOrdinal("state")), Str(r, "last_error"));
+        r.GetInt32(r.GetOrdinal("auto_update")) != 0, (InstallState)r.GetInt32(r.GetOrdinal("state")), Str(r, "last_error"),
+        Str(r, "exe_rel"), Str(r, "proton"), Str(r, "launch_args"),
+        Str(r, "last_played_utc") is { } lp ? DateTime.Parse(lp, null, System.Globalization.DateTimeStyles.RoundtripKind) : null,
+        r.GetInt64(r.GetOrdinal("playtime_sec")));
 
     // ---- events / kv ----
 

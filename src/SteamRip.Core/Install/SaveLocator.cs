@@ -50,33 +50,24 @@ public static class SaveLocator
         return list;
     }
 
-    /// <summary>Goldberg/GSE save dirs for <paramref name="steamAppId"/> under the given prefix roots and the game folder's own prefix.</summary>
-    public static IReadOnlyList<string> FindEmulatorSaves(long steamAppId, IEnumerable<string> prefixRoots, string? gameRoot)
+    /// <summary>Goldberg/GSE save dirs for <paramref name="steamAppId"/> inside the game's own Wine prefix(es); on Windows, the real user profile.</summary>
+    public static IReadOnlyList<string> FindEmulatorSaves(long steamAppId, string gameRoot)
     {
         var found = new List<string>();
-        var prefixes = new List<string>();
-        foreach (var root in prefixRoots.Where(Directory.Exists))
+        var userDirs = new List<string>();
+        foreach (var prefix in FindWinePrefixes(gameRoot))
         {
-            if (IsWinePrefix(root)) prefixes.Add(root);
-            else prefixes.AddRange(Directory.EnumerateDirectories(root).Where(IsWinePrefix));
+            var users = Path.Combine(gameRoot, prefix, "drive_c", "users");
+            if (Directory.Exists(users)) userDirs.AddRange(Directory.EnumerateDirectories(users));
         }
-        if (gameRoot is not null) prefixes.AddRange(FindWinePrefixes(gameRoot).Select(p => Path.Combine(gameRoot, p)));
-        if (OperatingSystem.IsWindows())
-            prefixes.Add(""); // on Windows the "prefix" is the real user profile
+        if (OperatingSystem.IsWindows()) userDirs.Add(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
-        foreach (var prefix in prefixes.Distinct())
-        {
-            var usersDir = prefix == "" ? Path.GetDirectoryName(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))! : Path.Combine(prefix, "drive_c", "users");
-            if (!Directory.Exists(usersDir)) continue;
-            foreach (var user in Directory.EnumerateDirectories(usersDir))
+        foreach (var user in userDirs.Distinct())
+            foreach (var emu in EmuSaveDirNames)
             {
-                foreach (var emu in EmuSaveDirNames)
-                {
-                    var p = Path.Combine(user, "AppData", "Roaming", emu, steamAppId.ToString());
-                    if (Directory.Exists(p)) found.Add(p);
-                }
+                var p = Path.Combine(user, "AppData", "Roaming", emu, steamAppId.ToString());
+                if (Directory.Exists(p)) found.Add(p);
             }
-        }
         return found;
     }
 }

@@ -8,7 +8,8 @@ public sealed class Settings
 {
     public string LibraryRoot { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Games", "SteamRIP");
     public string DownloadsRoot { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Games", "SteamRIP", ".downloads");
-    public List<string> PrefixRoots { get; set; } = DefaultPrefixRoots();
+    /// <summary>Proton build dir used for new games; empty = first one <see cref="Launch.ProtonLocator"/> finds (umu's default if none).</summary>
+    public string DefaultProtonPath { get; set; } = "";
     public string FlareSolverrUrl { get; set; } = "http://localhost:8191";
     public int CheckIntervalMinutes { get; set; } = 60;
     public bool AutoUpdatesPaused { get; set; }
@@ -46,16 +47,4 @@ public sealed class Settings
         File.WriteAllText(path, JsonSerializer.Serialize(this, Json));
     }
 
-    private static List<string> DefaultPrefixRoots()
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (OperatingSystem.IsWindows()) return [];
-        return
-        [
-            Path.Combine(home, "Games", "Heroic", "Prefixes"),
-            Path.Combine(home, "Games", "Heroic", "Prefixes", "default"),
-            Path.Combine(home, "Games"),
-            Path.Combine(home, ".local", "share", "lutris", "runners", "wine"),
-        ];
-    }
 }

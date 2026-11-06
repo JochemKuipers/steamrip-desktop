@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.Logging;
 using SteamRip.Core.Catalog;
 using SteamRip.Core.Data;
+using SteamRip.Core.Launch;
 using SteamRip.Core.Updates;
 
 namespace SteamRip.App.ViewModels;
@@ -11,32 +13,51 @@ namespace SteamRip.App.ViewModels;
 public partial class LibraryViewModel(AppServices s) : ObservableObject
 {
     public ObservableCollection<LibraryItem> Items { get; } = [];
+    public IReadOnlyList<ProtonBuild> Protons { get; } = [new ProtonBuild("App default", ""), .. ProtonLocator.Find()];
     [ObservableProperty] private int _updatesAvailable;
     [ObservableProperty] private bool _isEmpty = true;
+    [ObservableProperty] private string? _lastError;
 
     public void Refresh()
     {
         var installs = s.Db.GetInstalls();
         var jobs = s.Updates.Jobs;
-        Items.Clear();
         var updates = 0;
+        var seen = new HashSet<long>();
         foreach (var g in installs)
         {
+            seen.Add(g.PostId);
             var post = s.Db.GetPost(g.PostId);
             var job = jobs.FirstOrDefault(j => j.Post.Id == g.PostId && j.Stage is not (JobStage.Done or JobStage.Cancelled));
             var hasUpdate = post is not null && g.State == InstallState.Installed && UpdateDetector.IsUpdate(g, post);
             if (hasUpdate) updates++;
-            Items.Add(new LibraryItem(this, g, post, job, hasUpdate));
+            var running = s.Launcher.IsRunning(g.PostId);
+            var existing = Items.FirstOrDefault(i => i.Game.PostId == g.PostId);
+            if (existing is null) Items.Add(new LibraryItem(this, g, post, job, hasUpdate, running));
+            else existing.Update(g, post, job, hasUpdate, running);
         }
+        foreach (var gone in Items.Where(i => !seen.Contains(i.Game.PostId)).ToList()) Items.Remove(gone);
         UpdatesAvailable = updates;
         IsEmpty = Items.Count == 0;
     }
 
+    public async Task PlayAsync(LibraryItem item)
+    {
+        LastError = null;
+        try { await s.Updates.PlayAsync(item.Game.PostId); }
+        catch (Exception e) { LastError = $"{item.Name}: {e.Message}"; s.Log.LogWarning("Play {Name} failed: {Error}", item.Name, e.Message); }
+        Refresh();
+    }
+    public void Stop(LibraryItem item) { s.Launcher.Stop(item.Game.PostId); Refresh(); }
     public void Update(LibraryItem item) { if (item.Post is not null) s.Updates.Enqueue(item.Post, isUpdate: true); Refresh(); }
     public void ToggleAuto(LibraryItem item) { s.Db.UpsertInstall(item.Game with { AutoUpdate = !item.Game.AutoUpdate }); Refresh(); }
     public void Uninstall(LibraryItem item, bool deleteFiles) { s.Updates.Uninstall(item.Game.PostId, deleteFiles); Refresh(); }
     public void OpenFolder(LibraryItem item) => OpenPath(item.Game.InstallPath);
+    public void OpenPrefix(LibraryItem item) { var p = GameLauncher.PrefixDir(item.Game.InstallPath); if (Directory.Exists(p)) OpenPath(p); else LastError = $"{item.Name}: no prefix yet — it is created on first launch."; }
     public void OpenPage(LibraryItem item) { if (item.Post is not null) OpenPath(item.Post.Url); }
+    public void SetExe(LibraryItem item, string rel) { s.Db.UpsertInstall(item.Game with { ExeRelative = rel }); s.Log.LogInformation("{Name}: executable set to {Exe}", item.Name, rel); Refresh(); }
+    public void SetProton(LibraryItem item, ProtonBuild? p) { s.Db.UpsertInstall(item.Game with { ProtonPath = string.IsNullOrEmpty(p?.Path) ? null : p!.Path }); s.Log.LogInformation("{Name}: Proton set to {Proton}", item.Name, p?.Name ?? "default"); Refresh(); }
+    public void SetArgs(LibraryItem item, string? args) { s.Db.UpsertInstall(item.Game with { LaunchArgs = string.IsNullOrWhiteSpace(args) ? null : args.Trim() }); Refresh(); }
 
     public static void OpenPath(string target)
     {
@@ -45,30 +66,81 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     }
 }
 
-public sealed partial class LibraryItem(LibraryViewModel owner, InstalledGame game, CatalogPost? post, Job? job, bool hasUpdate) : ObservableObject
+public sealed partial class LibraryItem : ObservableObject
 {
-    public InstalledGame Game => game;
-    public CatalogPost? Post => post;
-    public string Name => game.Name;
-    public string InstalledVersion => game.InstalledVersion ?? "—";
-    public string SiteVersion => UpdateDetector.Normalize(post?.VersionKey) ?? "—";
-    public bool HasUpdate => hasUpdate;
-    public bool IsBusy => job is not null && job.Stage is JobStage.Queued or JobStage.Resolving or JobStage.Downloading or JobStage.Installing;
-    public bool IsIdle => !IsBusy;
-    public bool NeedsAttention => game.State is InstallState.Failed or InstallState.NeedsAttention;
-    public bool AutoUpdate => game.AutoUpdate;
-    public string AutoLabel => game.AutoUpdate ? "Auto-update on" : "Auto-update off";
-    public string StatusLine => job is not null && IsBusy ? job.Status
-        : NeedsAttention ? (game.LastError?.Split('\n')[0] ?? "Needs attention")
-        : hasUpdate ? "Update available" + (game.AutoUpdate ? " · installs automatically" : " · auto-update off")
-        : game.State == InstallState.Installed ? $"Installed {MainViewModel.Humanize(game.InstalledUtc)}" : game.State.ToString();
-    public string InstallPath => game.InstallPath;
-    public string SizeText => post?.SizeText ?? "";
+    private readonly LibraryViewModel _owner;
+    private InstalledGame _game; private CatalogPost? _post; private Job? _job; private bool _hasUpdate; private bool _running;
 
-    [RelayCommand] private void UpdateNow() => owner.Update(this);
-    [RelayCommand] private void ToggleAuto() => owner.ToggleAuto(this);
-    [RelayCommand] private void OpenFolder() => owner.OpenFolder(this);
-    [RelayCommand] private void OpenPage() => owner.OpenPage(this);
-    [RelayCommand] private void Forget() => owner.Uninstall(this, deleteFiles: false);
-    [RelayCommand] private void Delete() => owner.Uninstall(this, deleteFiles: true);
+    public LibraryItem(LibraryViewModel owner, InstalledGame game, CatalogPost? post, Job? job, bool hasUpdate, bool running)
+    {
+        _owner = owner; _game = game; _post = post; _job = job; _hasUpdate = hasUpdate; _running = running;
+        _launchArgs = game.LaunchArgs ?? "";
+        RefreshExes();
+    }
+
+    public void Update(InstalledGame game, CatalogPost? post, Job? job, bool hasUpdate, bool running)
+    {
+        var exeChanged = game.ExeRelative != _game.ExeRelative || game.InstallPath != _game.InstallPath || game.InstalledVersion != _game.InstalledVersion;
+        _game = game; _post = post; _job = job; _hasUpdate = hasUpdate; _running = running;
+        if (exeChanged) RefreshExes();
+        if (_launchArgs != (game.LaunchArgs ?? "")) LaunchArgs = game.LaunchArgs ?? "";
+        OnPropertyChanged(string.Empty);
+    }
+
+    private void RefreshExes()
+    {
+        Exes.Clear();
+        foreach (var c in ExeFinder.Candidates(_game.InstallPath, _game.Name)) Exes.Add(c.RelativePath);
+        if (_game.ExeRelative is { } cur && !Exes.Contains(cur)) Exes.Insert(0, cur);
+        _selectedExe = _game.ExeRelative;
+        _selectedProton = _owner.Protons.FirstOrDefault(p => p.Path == (_game.ProtonPath ?? "")) ?? _owner.Protons[0];
+        OnPropertyChanged(nameof(SelectedExe)); OnPropertyChanged(nameof(SelectedProton));
+    }
+
+    public InstalledGame Game => _game;
+    public CatalogPost? Post => _post;
+    public string Name => _game.Name;
+    public string InstalledVersion => _game.InstalledVersion ?? "—";
+    public string SiteVersion => UpdateDetector.Normalize(_post?.VersionKey) ?? "—";
+    public bool HasUpdate => _hasUpdate;
+    public bool IsRunning => _running;
+    public bool IsBusy => _job is not null && _job.Stage is JobStage.Queued or JobStage.Resolving or JobStage.Downloading or JobStage.Installing;
+    public bool CanPlay => !_running && !IsBusy && _game.State == InstallState.Installed;
+    public bool IsIdle => !IsBusy;
+    public bool NeedsAttention => _game.State is InstallState.Failed or InstallState.NeedsAttention;
+    public bool AutoUpdate => _game.AutoUpdate;
+    public string AutoLabel => _game.AutoUpdate ? "Auto-update on" : "Auto-update off";
+    public string Playtime => _game.PlaytimeSeconds switch { 0 => "", < 3600 => $"{_game.PlaytimeSeconds / 60} min played", var s => $"{s / 3600.0:0.0} h played" };
+    public string StatusLine => _running ? "Running"
+        : _job is not null && IsBusy ? _job.Status
+        : NeedsAttention ? (_game.LastError?.Split('\n')[0] ?? "Needs attention")
+        : _hasUpdate ? "Update available" + (_game.AutoUpdate ? " · installs automatically" : " · auto-update off")
+        : _game.State == InstallState.Installed
+            ? (_game.LastPlayedUtc is { } lp ? $"Last played {MainViewModel.Humanize(lp)}" : $"Installed {MainViewModel.Humanize(_game.InstalledUtc)} · never played")
+            : _game.State.ToString();
+    public string InstallPath => _game.InstallPath;
+    public string SizeText => _post?.SizeText ?? "";
+    public string ExeLine => _game.ExeRelative ?? "No executable chosen";
+
+    public ObservableCollection<string> Exes { get; } = [];
+    public IReadOnlyList<ProtonBuild> Protons => _owner.Protons;
+
+    private string? _selectedExe;
+    public string? SelectedExe { get => _selectedExe; set { if (value is null || value == _selectedExe) return; _selectedExe = value; OnPropertyChanged(); _owner.SetExe(this, value); } }
+
+    private ProtonBuild? _selectedProton;
+    public ProtonBuild? SelectedProton { get => _selectedProton; set { if (value is null || value == _selectedProton) return; _selectedProton = value; OnPropertyChanged(); _owner.SetProton(this, value); } }
+
+    [ObservableProperty] private string _launchArgs;
+    partial void OnLaunchArgsChanged(string value) { if (value != (_game.LaunchArgs ?? "")) _owner.SetArgs(this, value); }
+
+    [RelayCommand] private Task Play() => _owner.PlayAsync(this);
+    [RelayCommand] private void Stop() => _owner.Stop(this);
+    [RelayCommand] private void UpdateNow() => _owner.Update(this);
+    [RelayCommand] private void ToggleAuto() => _owner.ToggleAuto(this);
+    [RelayCommand] private void OpenFolder() => _owner.OpenFolder(this);
+    [RelayCommand] private void OpenPrefix() => _owner.OpenPrefix(this);
+    [RelayCommand] private void OpenPage() => _owner.OpenPage(this);
+    [RelayCommand] private void Forget() => _owner.Uninstall(this, deleteFiles: false);
+    [RelayCommand] private void Delete() => _owner.Uninstall(this, deleteFiles: true);
 }

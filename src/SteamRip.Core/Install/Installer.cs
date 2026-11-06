@@ -5,7 +5,6 @@ namespace SteamRip.Core.Install;
 
 public sealed record InstallOptions(
     string LibraryRoot,
-    IReadOnlyList<string> PrefixRoots,
     int KeepBackups = 2);
 
 public sealed record InstallResult(string InstallPath, string? BackupPath, IReadOnlyList<string> BackedUpSaves, IReadOnlyList<string> PreservedPrefixes);
@@ -55,7 +54,7 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
                 _log.LogInformation("Install {Slug}: backed up in-folder saves {Rel}", slug, rel);
             }
             if (steamAppId is { } appId)
-                foreach (var (emuDir, i) in SaveLocator.FindEmulatorSaves(appId, opt.PrefixRoots, target).Select((d, i) => (d, i)))
+                foreach (var (emuDir, i) in SaveLocator.FindEmulatorSaves(appId, target).Select((d, i) => (d, i)))
                 {
                     var dest = Path.Combine(backupPath, "emu", i.ToString(), appId.ToString());
                     CopyDir(emuDir, dest);
@@ -63,7 +62,7 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
                     backedUp.Add(emuDir);
                     _log.LogInformation("Install {Slug}: backed up emulator saves {Dir}", slug, emuDir);
                 }
-            if (backedUp.Count == 0) { _log.LogInformation("Install {Slug}: no save-like directories found (prefix roots: {Roots})", slug, string.Join(", ", opt.PrefixRoots)); Directory.CreateDirectory(backupPath); File.WriteAllText(Path.Combine(backupPath, "no-saves-found.txt"), "No save-like directories were found before this update."); }
+            if (backedUp.Count == 0) { _log.LogInformation("Install {Slug}: no save-like directories found outside the Wine prefix", slug); Directory.CreateDirectory(backupPath); File.WriteAllText(Path.Combine(backupPath, "no-saves-found.txt"), "No save-like directories were found before this update."); }
 
             progress?.Report(("Replacing old install", 0));
             // Wine prefixes created by Heroic/Lutris inside the game folder hold the real saves; carry them over to the new tree.

@@ -36,7 +36,7 @@ public class InstallerTests : IDisposable
         Skip.IfNot(Has7z, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
-        var result = await inst.InstallAsync(MakeArchive("v1"), "cool-game", 12345, null, new InstallOptions(lib, []), null, CancellationToken.None);
+        var result = await inst.InstallAsync(MakeArchive("v1"), "cool-game", 12345, null, new InstallOptions(lib), null, CancellationToken.None);
 
         Assert.Equal(Path.Combine(lib, "cool-game"), result.InstallPath);
         Assert.True(File.Exists(Path.Combine(result.InstallPath, "game.exe")));
@@ -51,17 +51,15 @@ public class InstallerTests : IDisposable
         Skip.IfNot(Has7z, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
-        var opt = new InstallOptions(lib, [Path.Combine(_root, "prefixes")], KeepBackups: 2);
+        var opt = new InstallOptions(lib, KeepBackups: 2);
         await inst.InstallAsync(MakeArchive("v1"), "cool-game", 12345, null, opt, null, CancellationToken.None);
         var game = Path.Combine(lib, "cool-game");
 
-        // Simulate play: in-folder saves, a Heroic prefix inside the game dir with GSE saves, and an external prefix root with saves.
+        // Simulate play: in-folder saves and the game's own Wine prefix (created by umu on first launch) holding GSE saves.
         Directory.CreateDirectory(Path.Combine(game, "Saves", "slot1"));
         File.WriteAllText(Path.Combine(game, "Saves", "slot1", "save.dat"), "progress v1");
         var innerEmu = Path.Combine(game, "prefix", "drive_c", "users", "steamuser", "AppData", "Roaming", "GSE Saves", "12345");
         Directory.CreateDirectory(innerEmu); File.WriteAllText(Path.Combine(innerEmu, "stats.bin"), "inner");
-        var outerEmu = Path.Combine(_root, "prefixes", "default", "drive_c", "users", "steamuser", "AppData", "Roaming", "Goldberg SteamEmu Saves", "12345");
-        Directory.CreateDirectory(outerEmu); File.WriteAllText(Path.Combine(outerEmu, "ach.json"), "outer");
         Assert.Equal("exe v1", File.ReadAllText(Path.Combine(game, "game.exe")));
 
         var r2 = await inst.InstallAsync(MakeArchive("v2"), "cool-game", 12345, "v1", opt, null, CancellationToken.None);
@@ -73,7 +71,6 @@ public class InstallerTests : IDisposable
         Assert.NotNull(r2.BackupPath);
         Assert.Equal(Path.Combine(lib, ".backups", "cool-game", "v1"), r2.BackupPath);
         Assert.True(File.Exists(Path.Combine(r2.BackupPath!, "game", "Saves", "slot1", "save.dat")));
-        Assert.True(Directory.EnumerateFiles(Path.Combine(r2.BackupPath!, "emu"), "ach.json", SearchOption.AllDirectories).Any());
         Assert.True(Directory.EnumerateFiles(Path.Combine(r2.BackupPath!, "emu"), "stats.bin", SearchOption.AllDirectories).Any());
         Assert.Contains(r2.BackedUpSaves, s => s == "Saves");
 
@@ -90,10 +87,10 @@ public class InstallerTests : IDisposable
         Skip.IfNot(Has7z, "7z not installed");
         var lib = Path.Combine(_root, "lib");
         var inst = new Installer(_tool);
-        await inst.InstallAsync(MakeArchive("v1"), "cool-game", null, null, new InstallOptions(lib, []), null, CancellationToken.None);
+        await inst.InstallAsync(MakeArchive("v1"), "cool-game", null, null, new InstallOptions(lib), null, CancellationToken.None);
         var bad = Path.Combine(_root, "bad.zip");
         File.WriteAllBytes(bad, new byte[1024]);
-        await Assert.ThrowsAsync<InstallException>(() => inst.InstallAsync(bad, "cool-game", null, "v1", new InstallOptions(lib, []), null, CancellationToken.None));
+        await Assert.ThrowsAsync<InstallException>(() => inst.InstallAsync(bad, "cool-game", null, "v1", new InstallOptions(lib), null, CancellationToken.None));
         Assert.Equal("exe v1", File.ReadAllText(Path.Combine(lib, "cool-game", "game.exe")));
     }
 

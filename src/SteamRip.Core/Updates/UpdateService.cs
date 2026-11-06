@@ -6,6 +6,7 @@ using SteamRip.Core.Data;
 using SteamRip.Core.Downloads;
 using SteamRip.Core.Hosters;
 using SteamRip.Core.Install;
+using SteamRip.Core.Launch;
 using SteamRip.Core.Platform;
 
 namespace SteamRip.Core.Updates;
@@ -23,6 +24,7 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly Downloader _downloader;
     private readonly Installer _installer;
     private readonly INotifier _notifier;
+    private readonly GameLauncher _launcher;
     private readonly ILogger _log;
     private readonly ConcurrentQueue<Job> _queue = new();
     private readonly SemaphoreSlim _wake = new(0);
@@ -30,10 +32,41 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly List<Job> _jobs = [];
     private Task? _worker, _scheduler;
 
-    public UpdateService(Database db, Settings settings, CatalogClient catalog, ResolverChain resolvers, Downloader downloader, Installer installer, INotifier notifier, ILogger<UpdateService>? logger = null)
+    public UpdateService(Database db, Settings settings, CatalogClient catalog, ResolverChain resolvers, Downloader downloader, Installer installer, INotifier notifier, GameLauncher launcher, ILogger<UpdateService>? logger = null)
     {
-        _db = db; _settings = settings; _catalog = catalog; _resolvers = resolvers; _downloader = downloader; _installer = installer; _notifier = notifier;
+        _db = db; _settings = settings; _catalog = catalog; _resolvers = resolvers; _downloader = downloader; _installer = installer; _notifier = notifier; _launcher = launcher;
         _log = logger ?? NullLogger<UpdateService>.Instance;
+        _launcher.Exited += OnGameExited;
+    }
+
+    public GameLauncher Launcher => _launcher;
+
+    // ---- play ----
+
+    public async Task PlayAsync(long postId)
+    {
+        var g = _db.GetInstall(postId) ?? throw new LaunchException("Not installed.");
+        if (g.State is not InstallState.Installed) throw new LaunchException($"{g.Name} is {g.State}; wait for it to finish.");
+        var post = _db.GetPost(postId);
+        var exe = g.ExeRelative;
+        if (exe is null || !File.Exists(Path.Combine(g.InstallPath, exe)))
+        {
+            exe = ExeFinder.Best(g.InstallPath, g.Name) ?? throw new LaunchException($"No executable found in {g.InstallPath}.");
+            _db.UpsertInstall(g with { ExeRelative = exe });
+            _log.LogInformation("{Name}: auto-selected executable {Exe}", g.Name, exe);
+        }
+        var proton = g.ProtonPath ?? (string.IsNullOrEmpty(_settings.DefaultProtonPath) ? null : _settings.DefaultProtonPath);
+        await _launcher.LaunchAsync(new LaunchSpec(postId, g.Name, g.InstallPath, exe, proton, g.LaunchArgs, post?.SteamAppId));
+        _db.UpsertInstall((_db.GetInstall(postId) ?? g) with { LastPlayedUtc = DateTime.UtcNow });
+        _db.LogEvent("play", g.Name, postId);
+        JobsChanged?.Invoke();
+    }
+
+    private void OnGameExited(long postId, TimeSpan played, int code)
+    {
+        var g = _db.GetInstall(postId);
+        if (g is not null) _db.UpsertInstall(g with { PlaytimeSeconds = g.PlaytimeSeconds + (long)played.TotalSeconds });
+        JobsChanged?.Invoke();
     }
 
     public IReadOnlyList<Job> Jobs { get { lock (_jobs) return _jobs.ToList(); } }
@@ -159,6 +192,7 @@ public sealed class UpdateService : IAsyncDisposable
     {
         var g = _db.GetInstall(postId);
         if (g is null) return;
+        if (_launcher.IsRunning(postId)) _launcher.Stop(postId);
         _log.LogInformation("Uninstall {Name}: {Path} (delete files: {Delete})", g.Name, g.InstallPath, deleteFiles);
         if (deleteFiles && Directory.Exists(g.InstallPath)) Directory.Delete(g.InstallPath, true);
         _db.RemoveInstall(postId);
@@ -196,15 +230,25 @@ public sealed class UpdateService : IAsyncDisposable
 
             var archivePath = await DownloadWithRetryAsync(job, post, ct);
 
+            if (_launcher.IsRunning(post.Id))
+            {
+                _log.LogInformation("{Name} is running; waiting for it to exit before installing", post.Name);
+                job.Set(JobStage.Installing, "Downloaded. Waiting for the game to close before installing…");
+                await _launcher.WaitForExitAsync(post.Id, ct);
+            }
+
             job.Set(JobStage.Installing, "Installing…");
             _db.SetInstallState(post.Id, InstallState.Installing);
-            var opt = new InstallOptions(_settings.LibraryRoot, _settings.PrefixRoots, _settings.KeepBackups);
+            var opt = new InstallOptions(_settings.LibraryRoot, _settings.KeepBackups);
             var result = await _installer.InstallAsync(archivePath, post.Slug, post.SteamAppId, previous?.InstalledVersion, opt,
                 new Progress<(string Stage, int Percent)>(p => job.Set(JobStage.Installing, $"{p.Stage} {p.Percent}%", p.Percent / 100.0)), ct);
             if (_settings.DeleteArchiveAfterInstall) { try { File.Delete(archivePath); } catch { } }
 
+            var exe = previous?.ExeRelative is { } prevExe && File.Exists(Path.Combine(result.InstallPath, prevExe)) ? prevExe : ExeFinder.Best(result.InstallPath, post.Name);
+            _log.LogInformation("{Name}: executable {Exe}", post.Name, exe ?? "none found");
             _db.UpsertInstall(new InstalledGame(post.Id, post.Slug, post.Name, UpdateDetector.Normalize(post.VersionKey), result.InstallPath, DateTime.UtcNow,
-                previous?.AutoUpdate ?? true, InstallState.Installed, null));
+                previous?.AutoUpdate ?? true, InstallState.Installed, null,
+                exe, previous?.ProtonPath, previous?.LaunchArgs, previous?.LastPlayedUtc, previous?.PlaytimeSeconds ?? 0));
             var what = job.IsUpdate ? $"Updated to {post.VersionKey}" : $"Installed {post.VersionKey}";
             _db.LogEvent(job.IsUpdate ? "update" : "install", $"{post.Name}: {what}" + (result.BackupPath is not null ? $" (saves backed up to {result.BackupPath})" : ""), post.Id);
             job.Set(JobStage.Done, what, 1);
@@ -324,6 +368,7 @@ public sealed class UpdateService : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _log.LogInformation("UpdateService stopping");
+        _launcher.Exited -= OnGameExited;
         _cts.Cancel();
         foreach (var j in Jobs) j.Cts.Cancel();
         if (_worker is not null) try { await _worker; } catch { }

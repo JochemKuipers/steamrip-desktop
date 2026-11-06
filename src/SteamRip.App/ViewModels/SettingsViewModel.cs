@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Collections.ObjectModel;
 using Microsoft.Extensions.Logging;
+using SteamRip.Core.Launch;
 using SteamRip.Core.Platform;
 
 namespace SteamRip.App.ViewModels;
@@ -11,7 +13,9 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _libraryRoot;
     [ObservableProperty] private string _downloadsRoot;
-    [ObservableProperty] private string _prefixRoots;
+    [ObservableProperty] private ProtonBuild? _defaultProton;
+    public ObservableCollection<ProtonBuild> Protons { get; } = [];
+    public string LauncherLine => "Runner: " + _s.Launcher.Describe();
     [ObservableProperty] private string _flareSolverrUrl;
     [ObservableProperty] private int _checkIntervalMinutes;
     [ObservableProperty] private bool _notifyNewGames;
@@ -33,7 +37,10 @@ public partial class SettingsViewModel : ObservableObject
     {
         _s = s;
         var c = s.Settings;
-        _libraryRoot = c.LibraryRoot; _downloadsRoot = c.DownloadsRoot; _prefixRoots = string.Join("\n", c.PrefixRoots);
+        _libraryRoot = c.LibraryRoot; _downloadsRoot = c.DownloadsRoot;
+        Protons.Add(new ProtonBuild("umu default (latest GE-Proton, downloaded by umu)", ""));
+        foreach (var p in ProtonLocator.Find()) Protons.Add(p);
+        _defaultProton = Protons.FirstOrDefault(p => p.Path == c.DefaultProtonPath) ?? Protons[0];
         _flareSolverrUrl = c.FlareSolverrUrl; _checkIntervalMinutes = c.CheckIntervalMinutes; _notifyNewGames = c.NotifyNewGames;
         _startHidden = c.StartHidden; _autostart = Core.Platform.Autostart.IsEnabled(); _deleteArchiveAfterInstall = c.DeleteArchiveAfterInstall;
         _keepBackups = c.KeepBackups; _hosterOrder = string.Join(", ", c.HosterOrder); _verboseLogging = c.VerboseLogging;
@@ -44,7 +51,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         var c = _s.Settings;
         c.LibraryRoot = LibraryRoot.Trim(); c.DownloadsRoot = DownloadsRoot.Trim();
-        c.PrefixRoots = PrefixRoots.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        c.DefaultProtonPath = DefaultProton?.Path ?? "";
         c.FlareSolverrUrl = FlareSolverrUrl.Trim().TrimEnd('/');
         c.CheckIntervalMinutes = Math.Max(5, CheckIntervalMinutes);
         c.NotifyNewGames = NotifyNewGames; c.StartHidden = StartHidden; c.DeleteArchiveAfterInstall = DeleteArchiveAfterInstall;

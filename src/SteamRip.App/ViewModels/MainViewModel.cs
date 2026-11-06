@@ -8,6 +8,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly AppServices _s;
     private readonly DispatcherTimer _health;
+    private readonly DispatcherTimer _runningPoll;
 
     public LibraryViewModel Library { get; }
     public BrowseViewModel Browse { get; }
@@ -41,6 +42,8 @@ public partial class MainViewModel : ObservableObject
         _health = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _health.Tick += async (_, _) => await CheckSolverAsync();
         _health.Start();
+        _runningPoll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+        _runningPoll.Tick += (_, _) => { Library.Refresh(); if (_s.Launcher.RunningIds.Count == 0) _runningPoll.Stop(); };
         _ = CheckSolverAsync();
     }
 
@@ -77,6 +80,7 @@ public partial class MainViewModel : ObservableObject
         QueueCount = jobs.Count(j => j.Stage is Core.Updates.JobStage.Queued or Core.Updates.JobStage.Resolving or Core.Updates.JobStage.Downloading or Core.Updates.JobStage.Installing);
         AttentionCount = jobs.Count(j => j.Stage is Core.Updates.JobStage.NeedsAttention or Core.Updates.JobStage.Failed);
         Library.Refresh();
+        if (_s.Launcher.RunningIds.Count > 0 && !_runningPoll.IsEnabled) _runningPoll.Start();
     }
 
     private async Task CheckSolverAsync()

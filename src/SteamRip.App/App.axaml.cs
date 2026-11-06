@@ -12,6 +12,7 @@ using SteamRip.Core.Data;
 using SteamRip.Core.Downloads;
 using SteamRip.Core.Hosters;
 using SteamRip.Core.Install;
+using SteamRip.Core.Launch;
 using SteamRip.Core.Platform;
 using SteamRip.Core.Solver;
 using SteamRip.Core.Updates;
@@ -113,6 +114,7 @@ public sealed class AppServices : IAsyncDisposable
     public required ISecretStore Secrets { get; init; }
     public required INotifier Notifier { get; init; }
     public required ILoggerFactory Loggers { get; init; }
+    public required GameLauncher Launcher { get; init; }
     public required FileLoggerProvider LogFile { get; init; }
     public required ILogger Log { get; init; }
 
@@ -150,14 +152,16 @@ public sealed class AppServices : IAsyncDisposable
         var archive = new ArchiveTool(loggers.CreateLogger<ArchiveTool>());
         log.LogInformation("Archive tools: {Tools}", archive.Describe());
         var notifier = new Notifier(loggers.CreateLogger<Notifier>());
+        var launcher = new GameLauncher(loggers.CreateLogger<GameLauncher>());
+        log.LogInformation("Launcher: {Runner}; Proton builds: [{Protons}]; default {Default}", launcher.Describe(), string.Join(", ", ProtonLocator.Find().Select(p => p.Name)), string.IsNullOrEmpty(settings.DefaultProtonPath) ? "umu default" : settings.DefaultProtonPath);
         var updates = new UpdateService(db, settings, new CatalogClient(catalogHttp, logger: loggers.CreateLogger<CatalogClient>()), resolvers,
-            new Downloader(http, loggers.CreateLogger<Downloader>()), new Installer(archive, loggers.CreateLogger<Installer>()), notifier, loggers.CreateLogger<UpdateService>());
+            new Downloader(http, loggers.CreateLogger<Downloader>()), new Installer(archive, loggers.CreateLogger<Installer>()), notifier, launcher, loggers.CreateLogger<UpdateService>());
         var secrets = SecretStore.Create(Settings.DefaultDir);
         log.LogInformation("Secrets backend: {Backend}; catalog has {Posts} posts, {Installs} installs", secrets.Backend, db.PostCount(), db.GetInstalls().Count);
         return new AppServices
         {
             Settings = settings, Db = db, Http = http, Solver = solver, Resolvers = resolvers, Archive = archive, Updates = updates,
-            Secrets = secrets, Notifier = notifier, Loggers = loggers, LogFile = logFile, Log = log,
+            Secrets = secrets, Notifier = notifier, Loggers = loggers, LogFile = logFile, Log = log, Launcher = launcher,
         };
     }
 
