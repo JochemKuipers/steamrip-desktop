@@ -15,7 +15,8 @@ public static partial class ProtonLocator
 
     public static IReadOnlyList<ProtonBuild> Find()
     {
-        if (!OperatingSystem.IsLinux()) return [];
+        if (!OperatingSystem.IsLinux())
+            return [];
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string[] roots =
         [
@@ -36,18 +37,38 @@ public static partial class ProtonLocator
         {
             foreach (var dir in Directory.EnumerateDirectories(root))
             {
-                if (!File.Exists(System.IO.Path.Combine(dir, "proton"))) continue;
+                if (!File.Exists(System.IO.Path.Combine(dir, "proton")))
+                    continue;
                 var vdf = System.IO.Path.Combine(dir, "compatibilitytool.vdf");
-                var name = File.Exists(vdf) && DisplayName().Match(File.ReadAllText(vdf)) is { Success: true } m ? m.Groups[1].Value : System.IO.Path.GetFileName(dir);
+                var name =
+                    File.Exists(vdf)
+                    && DisplayName().Match(File.ReadAllText(vdf)) is { Success: true } m
+                        ? m.Groups[1].Value
+                        : System.IO.Path.GetFileName(dir);
                 // ~/.steam/root and ~/.steam/steam are symlinks to the same place; identify a build by name + version file, not by path.
                 var versionFile = System.IO.Path.Combine(dir, "version");
-                var identity = name + "|" + (File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : new FileInfo(System.IO.Path.Combine(dir, "proton")).Length.ToString());
-                if (!seen.Add(identity)) continue;
+                var identity =
+                    name
+                    + "|"
+                    + (
+                        File.Exists(versionFile)
+                            ? File.ReadAllText(versionFile).Trim()
+                            : new FileInfo(System.IO.Path.Combine(dir, "proton")).Length.ToString()
+                    );
+                if (!seen.Add(identity))
+                    continue;
                 found.Add(new ProtonBuild(name, dir));
             }
         }
         // Preference: CachyOS / GE builds first (they carry the game fixes), then Steam's own, then anything else.
-        return found.OrderBy(p => p.Name.Contains("cachyos", StringComparison.OrdinalIgnoreCase) ? 0 : p.Name.Contains("GE", StringComparison.Ordinal) ? 1 : p.Name.Contains("Experimental", StringComparison.OrdinalIgnoreCase) ? 2 : 3)
-                    .ThenByDescending(p => p.Name).ToList();
+        return found
+            .OrderBy(p =>
+                p.Name.Contains("cachyos", StringComparison.OrdinalIgnoreCase) ? 0
+                : p.Name.Contains("GE", StringComparison.Ordinal) ? 1
+                : p.Name.Contains("Experimental", StringComparison.OrdinalIgnoreCase) ? 2
+                : 3
+            )
+            .ThenByDescending(p => p.Name)
+            .ToList();
     }
 }

@@ -13,7 +13,8 @@ public sealed record CatalogPost(
     DateTime ModifiedUtc,
     DateTime PublishedUtc,
     string? SizeText,
-    IReadOnlyList<Mirror> Mirrors)
+    IReadOnlyList<Mirror> Mirrors
+)
 {
     /// <summary>The value that decides whether an installed copy is outdated: Steam build when the site has one, else the title's version string.</summary>
     public string? VersionKey => Build ?? TitleVersion;
@@ -21,4 +22,13 @@ public sealed record CatalogPost(
 
 public sealed record Mirror(Hoster Host, string Url);
 
-public enum Hoster { Unknown, BuzzHeavier, FileDitch, GoFile, MegaDb, Fichier, FileCrypt }
+public enum Hoster
+{
+    Unknown,
+    BuzzHeavier,
+    FileDitch,
+    GoFile,
+    MegaDb,
+    Fichier,
+    FileCrypt,
+}

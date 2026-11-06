@@ -1,14 +1,17 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:SteamRip.App.ViewModels"
-        x:Class="SteamRip.App.Views.MainWindow"
-        x:DataType="vm:MainViewModel"
-        Title="SteamRIP Desktop"
-        Width="1040" Height="700" MinWidth="820" MinHeight="520"
-        Icon="avares://steamrip-desktop/Assets/app.png">
-
+<Window
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="using:SteamRip.App.ViewModels"
+  x:Class="SteamRip.App.Views.MainWindow"
+  x:DataType="vm:MainViewModel"
+  Title="SteamRIP Desktop"
+  Width="1040"
+  Height="700"
+  MinWidth="820"
+  MinHeight="520"
+  Icon="avares://steamrip-desktop/Assets/app.png"
+>
   <Window.DataTemplates>
-
     <!-- ============ LIBRARY ============ -->
     <DataTemplate DataType="vm:LibraryViewModel">
       <DockPanel Margin="28,24,28,20">
@@ -17,13 +20,28 @@
           <DockPanel>
             <TextBlock Classes="h1" Text="Library" />
             <Border Classes="pill amber" Margin="12,6,0,0" IsVisible="{Binding UpdatesAvailable}">
-              <TextBlock FontSize="11"><Run Text="{Binding UpdatesAvailable}" /><Run Text=" update(s) pending" /></TextBlock>
+              <TextBlock FontSize="11">
+                <Run Text="{Binding UpdatesAvailable}" />
+                <Run Text=" update(s) pending" />
+              </TextBlock>
             </Border>
           </DockPanel>
         </StackPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="muted" IsVisible="{Binding IsEmpty}" TextWrapping="Wrap"
-                   Text="Nothing installed yet. Pick a game under Browse; it downloads, verifies, extracts into your library folder, gets its own Proton prefix on first launch, and stays current from then on." />
-        <TextBlock DockPanel.Dock="Top" Classes="red" Margin="0,0,0,10" TextWrapping="Wrap" Text="{Binding LastError}" IsVisible="{Binding LastError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock
+          DockPanel.Dock="Top"
+          Classes="muted"
+          IsVisible="{Binding IsEmpty}"
+          TextWrapping="Wrap"
+          Text="Nothing installed yet. Pick a game under Browse; it downloads, verifies, extracts into your library folder, gets its own Proton prefix on first launch, and stays current from then on."
+        />
+        <TextBlock
+          DockPanel.Dock="Top"
+          Classes="red"
+          Margin="0,0,0,10"
+          TextWrapping="Wrap"
+          Text="{Binding LastError}"
+          IsVisible="{Binding LastError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+        />
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
@@ -31,41 +49,144 @@
                 <Border Classes="card" Margin="0,0,0,8">
                   <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                     <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" Spacing="10">
-                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
-                      <Border Classes="pill" IsVisible="{Binding IsRunning}"><TextBlock FontSize="11" Classes="green" Text="Running" /></Border>
-                      <TextBlock Classes="muted" Text="{Binding SizeText}" VerticalAlignment="Center" />
-                      <TextBlock Classes="muted" Text="{Binding Playtime}" VerticalAlignment="Center" />
+                      <TextBlock
+                        Text="{Binding Name}"
+                        FontWeight="SemiBold"
+                        FontSize="15"
+                        VerticalAlignment="Center"
+                      />
+                      <Border Classes="pill" IsVisible="{Binding IsRunning}">
+                        <TextBlock FontSize="11" Classes="green" Text="Running" />
+                      </Border>
+                      <TextBlock
+                        Classes="muted"
+                        Text="{Binding SizeText}"
+                        VerticalAlignment="Center"
+                      />
+                      <TextBlock
+                        Classes="muted"
+                        Text="{Binding Playtime}"
+                        VerticalAlignment="Center"
+                      />
                     </StackPanel>
                     <!-- Version ticket: installed → site. The arrow lights amber when they differ. -->
-                    <StackPanel Grid.Column="0" Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                    <StackPanel
+                      Grid.Column="0"
+                      Grid.Row="1"
+                      Orientation="Horizontal"
+                      Spacing="8"
+                      Margin="0,4,0,0"
+                    >
                       <TextBlock Classes="mono" Text="{Binding InstalledVersion}" />
                       <TextBlock Classes="mono muted" Text="→" IsVisible="{Binding !HasUpdate}" />
                       <TextBlock Classes="mono amber" Text="→" IsVisible="{Binding HasUpdate}" />
-                      <TextBlock Classes="mono muted" Text="{Binding SiteVersion}" IsVisible="{Binding !HasUpdate}" />
-                      <TextBlock Classes="mono amber" Text="{Binding SiteVersion}" IsVisible="{Binding HasUpdate}" />
+                      <TextBlock
+                        Classes="mono muted"
+                        Text="{Binding SiteVersion}"
+                        IsVisible="{Binding !HasUpdate}"
+                      />
+                      <TextBlock
+                        Classes="mono amber"
+                        Text="{Binding SiteVersion}"
+                        IsVisible="{Binding HasUpdate}"
+                      />
                     </StackPanel>
-                    <StackPanel Grid.Column="0" Grid.Row="2" Margin="0,6,0,0" Orientation="Horizontal" Spacing="10">
-                      <TextBlock Text="{Binding StatusLine}" TextWrapping="Wrap" Classes.muted="{Binding !NeedsAttention}" Classes.red="{Binding NeedsAttention}" Classes.green="{Binding IsRunning}" />
-                      <TextBlock Classes="mono muted" FontSize="11" Text="{Binding ExeLine}" VerticalAlignment="Center" />
+                    <StackPanel
+                      Grid.Column="0"
+                      Grid.Row="2"
+                      Margin="0,6,0,0"
+                      Orientation="Horizontal"
+                      Spacing="10"
+                    >
+                      <TextBlock
+                        Text="{Binding StatusLine}"
+                        TextWrapping="Wrap"
+                        Classes.muted="{Binding !NeedsAttention}"
+                        Classes.red="{Binding NeedsAttention}"
+                        Classes.green="{Binding IsRunning}"
+                      />
+                      <TextBlock
+                        Classes="mono muted"
+                        FontSize="11"
+                        Text="{Binding ExeLine}"
+                        VerticalAlignment="Center"
+                      />
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Grid.RowSpan="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                      <Button Classes="primary" Content="Play" Command="{Binding PlayCommand}" IsVisible="{Binding !IsRunning}" IsEnabled="{Binding CanPlay}" MinWidth="72" />
-                      <Button Classes="danger" Content="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsRunning}" MinWidth="72" />
-                      <Button Classes="quiet" Content="Update now" Command="{Binding UpdateNowCommand}" IsVisible="{Binding HasUpdate}" IsEnabled="{Binding IsIdle}" Foreground="{StaticResource Amber}" />
+                    <StackPanel
+                      Grid.Column="1"
+                      Grid.RowSpan="3"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center"
+                    >
+                      <Button
+                        Classes="primary"
+                        Content="Play"
+                        Command="{Binding PlayCommand}"
+                        IsVisible="{Binding !IsRunning}"
+                        IsEnabled="{Binding CanPlay}"
+                        MinWidth="72"
+                      />
+                      <Button
+                        Classes="danger"
+                        Content="Stop"
+                        Command="{Binding StopCommand}"
+                        IsVisible="{Binding IsRunning}"
+                        MinWidth="72"
+                      />
+                      <Button
+                        Classes="quiet"
+                        Content="Update now"
+                        Command="{Binding UpdateNowCommand}"
+                        IsVisible="{Binding HasUpdate}"
+                        IsEnabled="{Binding IsIdle}"
+                        Foreground="{StaticResource Amber}"
+                      />
                       <Button Classes="quiet" Content="Launch options">
                         <Button.Flyout>
                           <Flyout Placement="BottomEdgeAlignedRight">
                             <StackPanel Spacing="8" Width="420">
                               <TextBlock Classes="eyebrow" Text="EXECUTABLE" />
-                              <ComboBox ItemsSource="{Binding Exes}" SelectedItem="{Binding SelectedExe}" HorizontalAlignment="Stretch" FontFamily="{StaticResource Mono}" FontSize="12" />
+                              <ComboBox
+                                ItemsSource="{Binding Exes}"
+                                SelectedItem="{Binding SelectedExe}"
+                                HorizontalAlignment="Stretch"
+                                FontFamily="{StaticResource Mono}"
+                                FontSize="12"
+                              />
                               <TextBlock Classes="eyebrow" Text="PROTON" Margin="0,6,0,0" />
-                              <ComboBox ItemsSource="{Binding Protons}" SelectedItem="{Binding SelectedProton}" HorizontalAlignment="Stretch" />
-                              <TextBlock Classes="eyebrow" Text="EXTRA ARGUMENTS" Margin="0,6,0,0" />
-                              <TextBox Text="{Binding LaunchArgs}" Watermark="-windowed -nosplash" FontFamily="{StaticResource Mono}" FontSize="12" />
+                              <ComboBox
+                                ItemsSource="{Binding Protons}"
+                                SelectedItem="{Binding SelectedProton}"
+                                HorizontalAlignment="Stretch"
+                              />
+                              <TextBlock
+                                Classes="eyebrow"
+                                Text="EXTRA ARGUMENTS"
+                                Margin="0,6,0,0"
+                              />
+                              <TextBox
+                                Text="{Binding LaunchArgs}"
+                                Watermark="-windowed -nosplash"
+                                FontFamily="{StaticResource Mono}"
+                                FontSize="12"
+                              />
                               <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,6,0,0">
-                                <Button Classes="quiet" Content="Game folder" Command="{Binding OpenFolderCommand}" />
-                                <Button Classes="quiet" Content="Prefix folder" Command="{Binding OpenPrefixCommand}" />
-                                <Button Classes="quiet" Content="Site page" Command="{Binding OpenPageCommand}" />
+                                <Button
+                                  Classes="quiet"
+                                  Content="Game folder"
+                                  Command="{Binding OpenFolderCommand}"
+                                />
+                                <Button
+                                  Classes="quiet"
+                                  Content="Prefix folder"
+                                  Command="{Binding OpenPrefixCommand}"
+                                />
+                                <Button
+                                  Classes="quiet"
+                                  Content="Site page"
+                                  Command="{Binding OpenPageCommand}"
+                                />
                               </StackPanel>
                             </StackPanel>
                           </Flyout>
@@ -74,10 +195,19 @@
                       <Button Classes="quiet" Content="⋯">
                         <Button.Flyout>
                           <MenuFlyout>
-                            <MenuItem Header="{Binding AutoLabel}" Command="{Binding ToggleAutoCommand}" />
+                            <MenuItem
+                              Header="{Binding AutoLabel}"
+                              Command="{Binding ToggleAutoCommand}"
+                            />
                             <MenuItem Header="-" />
-                            <MenuItem Header="Forget (keep files)" Command="{Binding ForgetCommand}" />
-                            <MenuItem Header="Uninstall and delete files" Command="{Binding DeleteCommand}" />
+                            <MenuItem
+                              Header="Forget (keep files)"
+                              Command="{Binding ForgetCommand}"
+                            />
+                            <MenuItem
+                              Header="Uninstall and delete files"
+                              Command="{Binding DeleteCommand}"
+                            />
                           </MenuFlyout>
                         </Button.Flyout>
                       </Button>
@@ -99,13 +229,28 @@
           <DockPanel>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
               <Button Classes="quiet" Content="Sync now" Command="{Binding SyncCommand}" />
-              <Button Classes="quiet" Content="Full re-sync" Command="{Binding FullSyncCommand}" ToolTip.Tip="Re-fetch all ~5,000 posts (about 50 requests)" />
+              <Button
+                Classes="quiet"
+                Content="Full re-sync"
+                Command="{Binding FullSyncCommand}"
+                ToolTip.Tip="Re-fetch all ~5,000 posts (about 50 requests)"
+              />
             </StackPanel>
             <TextBlock Classes="h1" Text="Browse" />
           </DockPanel>
         </StackPanel>
-        <TextBox DockPanel.Dock="Top" Watermark="Search by name…" Text="{Binding Query}" Margin="0,0,0,8" />
-        <TextBlock DockPanel.Dock="Top" Classes="muted" Text="{Binding Summary}" Margin="0,0,0,12" />
+        <TextBox
+          DockPanel.Dock="Top"
+          Watermark="Search by name…"
+          Text="{Binding Query}"
+          Margin="0,0,0,8"
+        />
+        <TextBlock
+          DockPanel.Dock="Top"
+          Classes="muted"
+          Text="{Binding Summary}"
+          Margin="0,0,0,12"
+        />
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
@@ -115,16 +260,42 @@
                     <StackPanel>
                       <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
-                        <TextBlock Classes="mono muted" Text="{Binding Version}" VerticalAlignment="Center" />
+                        <TextBlock
+                          Classes="mono muted"
+                          Text="{Binding Version}"
+                          VerticalAlignment="Center"
+                        />
                       </StackPanel>
                       <TextBlock Classes="muted" Margin="0,3,0,0">
-                        <Run Text="{Binding Size}" /><Run Text="  ·  updated " /><Run Text="{Binding Updated}" /><Run Text="  ·  " /><Run Text="{Binding Mirrors}" />
+                        <Run Text="{Binding Size}" />
+                        <Run Text="  ·  updated " />
+                        <Run Text="{Binding Updated}" />
+                        <Run Text="  ·  " />
+                        <Run Text="{Binding Mirrors}" />
                       </TextBlock>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                      <Border Classes="pill" IsVisible="{Binding Installed}"><TextBlock FontSize="11" Classes="green" Text="In library" /></Border>
-                      <Border Classes="pill" IsVisible="{Binding Unsupported}" ToolTip.Tip="This post only has mirrors the app can't resolve (1fichier, FileCrypt…)"><TextBlock FontSize="11" Classes="muted" Text="No supported mirror" /></Border>
-                      <Button Classes="primary" Content="Install" Command="{Binding InstallCommand}" IsVisible="{Binding CanInstall}" />
+                    <StackPanel
+                      Grid.Column="1"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center"
+                    >
+                      <Border Classes="pill" IsVisible="{Binding Installed}">
+                        <TextBlock FontSize="11" Classes="green" Text="In library" />
+                      </Border>
+                      <Border
+                        Classes="pill"
+                        IsVisible="{Binding Unsupported}"
+                        ToolTip.Tip="This post only has mirrors the app can't resolve (1fichier, FileCrypt…)"
+                      >
+                        <TextBlock FontSize="11" Classes="muted" Text="No supported mirror" />
+                      </Border>
+                      <Button
+                        Classes="primary"
+                        Content="Install"
+                        Command="{Binding InstallCommand}"
+                        IsVisible="{Binding CanInstall}"
+                      />
                       <Button Classes="quiet" Content="Page" Command="{Binding OpenPageCommand}" />
                     </StackPanel>
                   </Grid>
@@ -142,14 +313,33 @@
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
           <TextBlock Classes="eyebrow" Text="ONE AT A TIME" />
           <DockPanel>
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-              <ToggleSwitch IsChecked="{Binding Paused}" OnContent="Auto-updates paused" OffContent="Auto-updates on" />
-              <Button Classes="quiet" Content="Clear finished" Command="{Binding ClearFinishedCommand}" />
+            <StackPanel
+              DockPanel.Dock="Right"
+              Orientation="Horizontal"
+              Spacing="12"
+              VerticalAlignment="Center"
+            >
+              <ToggleSwitch
+                IsChecked="{Binding Paused}"
+                OnContent="Auto-updates paused"
+                OffContent="Auto-updates on"
+              />
+              <Button
+                Classes="quiet"
+                Content="Clear finished"
+                Command="{Binding ClearFinishedCommand}"
+              />
             </StackPanel>
             <TextBlock Classes="h1" Text="Queue" />
           </DockPanel>
         </StackPanel>
-        <TextBlock DockPanel.Dock="Top" Classes="muted" IsVisible="{Binding IsEmpty}" Text="Nothing queued. Updates land here automatically when the catalog changes; installs when you press Install." TextWrapping="Wrap" />
+        <TextBlock
+          DockPanel.Dock="Top"
+          Classes="muted"
+          IsVisible="{Binding IsEmpty}"
+          Text="Nothing queued. Updates land here automatically when the catalog changes; installs when you press Install."
+          TextWrapping="Wrap"
+        />
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Items}">
             <ItemsControl.ItemTemplate>
@@ -160,21 +350,66 @@
                       <StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                           <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15" />
-                          <Border Classes="pill"><TextBlock FontSize="11" Text="{Binding Kind}" /></Border>
-                          <TextBlock Classes="mono muted" Text="{Binding Version}" VerticalAlignment="Center" />
+                          <Border Classes="pill">
+                            <TextBlock FontSize="11" Text="{Binding Kind}" />
+                          </Border>
+                          <TextBlock
+                            Classes="mono muted"
+                            Text="{Binding Version}"
+                            VerticalAlignment="Center"
+                          />
                         </StackPanel>
-                        <TextBlock Margin="0,6,0,0" Text="{Binding Status}" TextWrapping="Wrap"
-                                   Classes.muted="{Binding Active}" Classes.red="{Binding NeedsAttention}" Classes.green="{Binding Done}" />
+                        <TextBlock
+                          Margin="0,6,0,0"
+                          Text="{Binding Status}"
+                          TextWrapping="Wrap"
+                          Classes.muted="{Binding Active}"
+                          Classes.red="{Binding NeedsAttention}"
+                          Classes.green="{Binding Done}"
+                        />
                       </StackPanel>
-                      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <Button Classes="primary" Content="Solve in browser" Command="{Binding SolveInBrowserCommand}" IsVisible="{Binding NeedsAttention}" IsEnabled="{Binding CanSolveInBrowser}"
-                                ToolTip.Tip="Opens a visible Chromium on the FileDitch mirror so you can pass its check; the download then continues here." />
-                        <Button Classes="quiet" Content="Retry" Command="{Binding RetryCommand}" IsVisible="{Binding Failed}" />
-                        <Button Classes="quiet" Content="Retry" Command="{Binding RetryCommand}" IsVisible="{Binding NeedsAttention}" />
-                        <Button Classes="danger" Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding Active}" />
+                      <StackPanel
+                        Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        VerticalAlignment="Center"
+                      >
+                        <Button
+                          Classes="primary"
+                          Content="Solve in browser"
+                          Command="{Binding SolveInBrowserCommand}"
+                          IsVisible="{Binding NeedsAttention}"
+                          IsEnabled="{Binding CanSolveInBrowser}"
+                          ToolTip.Tip="Opens a visible Chromium on the FileDitch mirror so you can pass its check; the download then continues here."
+                        />
+                        <Button
+                          Classes="quiet"
+                          Content="Retry"
+                          Command="{Binding RetryCommand}"
+                          IsVisible="{Binding Failed}"
+                        />
+                        <Button
+                          Classes="quiet"
+                          Content="Retry"
+                          Command="{Binding RetryCommand}"
+                          IsVisible="{Binding NeedsAttention}"
+                        />
+                        <Button
+                          Classes="danger"
+                          Content="Cancel"
+                          Command="{Binding CancelCommand}"
+                          IsVisible="{Binding Active}"
+                        />
                       </StackPanel>
                     </Grid>
-                    <ProgressBar Margin="0" CornerRadius="0,0,8,8" Value="{Binding Fraction}" Maximum="1" IsIndeterminate="{Binding Indeterminate}" IsVisible="{Binding Active}" />
+                    <ProgressBar
+                      Margin="0"
+                      CornerRadius="0,0,8,8"
+                      Value="{Binding Fraction}"
+                      Maximum="1"
+                      IsIndeterminate="{Binding Indeterminate}"
+                      IsVisible="{Binding Active}"
+                    />
                   </StackPanel>
                 </Border>
               </DataTemplate>
@@ -198,7 +433,13 @@
                 <DataTemplate DataType="vm:ActivityLine">
                   <Grid ColumnDefinitions="130,90,*" Margin="0,3">
                     <TextBlock Classes="mono muted" Text="{Binding When}" />
-                    <TextBlock Grid.Column="1" Classes="mono" Text="{Binding Kind}" Classes.red="{Binding IsError}" Classes.muted="{Binding !IsError}" />
+                    <TextBlock
+                      Grid.Column="1"
+                      Classes="mono"
+                      Text="{Binding Kind}"
+                      Classes.red="{Binding IsError}"
+                      Classes.muted="{Binding !IsError}"
+                    />
                     <TextBlock Grid.Column="2" Text="{Binding Message}" TextWrapping="Wrap" />
                   </Grid>
                 </DataTemplate>
@@ -207,7 +448,14 @@
           </ScrollViewer>
         </Border>
         <DockPanel Grid.Row="2" Margin="0,16,0,8">
-          <Button DockPanel.Dock="Right" Classes="quiet" Content="Open log folder" Command="{Binding OpenLogDirCommand}" Padding="10,4" FontSize="12" />
+          <Button
+            DockPanel.Dock="Right"
+            Classes="quiet"
+            Content="Open log folder"
+            Command="{Binding OpenLogDirCommand}"
+            Padding="10,4"
+            FontSize="12"
+          />
           <StackPanel VerticalAlignment="Center">
             <TextBlock Classes="eyebrow" Text="LOG (THIS SESSION)" />
             <TextBlock Classes="mono muted" FontSize="11" Text="{Binding LogDir}" />
@@ -218,7 +466,12 @@
             <ItemsControl ItemsSource="{Binding Live}" Margin="12,8">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="x:String">
-                  <TextBlock Classes="mono muted" Text="{Binding}" TextWrapping="Wrap" Margin="0,1" />
+                  <TextBlock
+                    Classes="mono muted"
+                    Text="{Binding}"
+                    TextWrapping="Wrap"
+                    Margin="0,1"
+                  />
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -239,12 +492,31 @@
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock FontWeight="SemiBold" Text="Folders" />
-              <TextBlock Classes="muted" Text="Games are extracted to &lt;library&gt;/&lt;game-slug&gt;; each gets its own Wine prefix at &lt;game&gt;/prefix on first launch, so saves live with the game and survive updates. Archives land in the downloads folder and are deleted after install unless you say otherwise." TextWrapping="Wrap" />
-              <TextBlock Text="Library folder" Classes="muted" /><TextBox Text="{Binding LibraryRoot}" />
-              <TextBlock Text="Downloads folder" Classes="muted" /><TextBox Text="{Binding DownloadsRoot}" />
+              <TextBlock
+                Classes="muted"
+                Text="Games are extracted to &lt;library&gt;/&lt;game-slug&gt;; each gets its own Wine prefix at &lt;game&gt;/prefix on first launch, so saves live with the game and survive updates. Archives land in the downloads folder and are deleted after install unless you say otherwise."
+                TextWrapping="Wrap"
+              />
+              <TextBlock Text="Library folder" Classes="muted" />
+              <TextBox Text="{Binding LibraryRoot}" />
+              <TextBlock Text="Downloads folder" Classes="muted" />
+              <TextBox Text="{Binding DownloadsRoot}" />
               <StackPanel Orientation="Horizontal" Spacing="16">
-                <StackPanel><TextBlock Text="Save backups to keep per game" Classes="muted" /><NumericUpDown Value="{Binding KeepBackups}" Minimum="0" Maximum="10" Width="140" /></StackPanel>
-                <ToggleSwitch IsChecked="{Binding DeleteArchiveAfterInstall}" OnContent="Delete archive after install" OffContent="Keep archive after install" VerticalAlignment="Bottom" />
+                <StackPanel>
+                  <TextBlock Text="Save backups to keep per game" Classes="muted" />
+                  <NumericUpDown
+                    Value="{Binding KeepBackups}"
+                    Minimum="0"
+                    Maximum="10"
+                    Width="140"
+                  />
+                </StackPanel>
+                <ToggleSwitch
+                  IsChecked="{Binding DeleteArchiveAfterInstall}"
+                  OnContent="Delete archive after install"
+                  OffContent="Keep archive after install"
+                  VerticalAlignment="Bottom"
+                />
               </StackPanel>
             </StackPanel>
           </Border>
@@ -252,9 +524,17 @@
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock FontWeight="SemiBold" Text="Playing" />
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="Games run through umu-run with the Proton build below (per-game override in Launch options). umu downloads its runtime on the first launch, so expect a wait that one time." />
+              <TextBlock
+                Classes="muted"
+                TextWrapping="Wrap"
+                Text="Games run through umu-run with the Proton build below (per-game override in Launch options). umu downloads its runtime on the first launch, so expect a wait that one time."
+              />
               <TextBlock Text="Default Proton" Classes="muted" />
-              <ComboBox ItemsSource="{Binding Protons}" SelectedItem="{Binding DefaultProton}" HorizontalAlignment="Stretch" />
+              <ComboBox
+                ItemsSource="{Binding Protons}"
+                SelectedItem="{Binding DefaultProton}"
+                HorizontalAlignment="Stretch"
+              />
               <TextBlock Classes="mono muted" Text="{Binding LauncherLine}" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
@@ -262,15 +542,41 @@
           <Border Classes="card">
             <StackPanel Spacing="10">
               <TextBlock FontWeight="SemiBold" Text="Mirrors and Cloudflare" />
-              <TextBlock Classes="muted" TextWrapping="Wrap" Text="FileDitch and BuzzHeavier pages sit behind browser checks; FlareSolverr passes them for you. GoFile and MegaDB need nothing. If every automatic route fails, the queue offers 'Solve in browser'." />
+              <TextBlock
+                Classes="muted"
+                TextWrapping="Wrap"
+                Text="FileDitch and BuzzHeavier pages sit behind browser checks; FlareSolverr passes them for you. GoFile and MegaDB need nothing. If every automatic route fails, the queue offers 'Solve in browser'."
+              />
               <TextBlock Text="FlareSolverr URL" Classes="muted" />
               <DockPanel>
-                <Button DockPanel.Dock="Right" Classes="quiet" Content="Test" Command="{Binding TestSolverCommand}" Margin="6,0,0,0" />
-                <TextBox Text="{Binding FlareSolverrUrl}" FontFamily="{StaticResource Mono}" FontSize="12" />
+                <Button
+                  DockPanel.Dock="Right"
+                  Classes="quiet"
+                  Content="Test"
+                  Command="{Binding TestSolverCommand}"
+                  Margin="6,0,0,0"
+                />
+                <TextBox
+                  Text="{Binding FlareSolverrUrl}"
+                  FontFamily="{StaticResource Mono}"
+                  FontSize="12"
+                />
               </DockPanel>
-              <TextBlock Classes="muted" Text="{Binding SolverTest}" IsVisible="{Binding SolverTest, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <TextBlock Text="Mirror preference (comma-separated: FileDitch, GoFile, MegaDb, BuzzHeavier)" Classes="muted" TextWrapping="Wrap" />
-              <TextBox Text="{Binding HosterOrder}" FontFamily="{StaticResource Mono}" FontSize="12" />
+              <TextBlock
+                Classes="muted"
+                Text="{Binding SolverTest}"
+                IsVisible="{Binding SolverTest, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+              />
+              <TextBlock
+                Text="Mirror preference (comma-separated: FileDitch, GoFile, MegaDb, BuzzHeavier)"
+                Classes="muted"
+                TextWrapping="Wrap"
+              />
+              <TextBox
+                Text="{Binding HosterOrder}"
+                FontFamily="{StaticResource Mono}"
+                FontSize="12"
+              />
             </StackPanel>
           </Border>
 
@@ -278,12 +584,37 @@
             <StackPanel Spacing="10">
               <TextBlock FontWeight="SemiBold" Text="Schedule and tray" />
               <StackPanel Orientation="Horizontal" Spacing="16">
-                <StackPanel><TextBlock Text="Check the catalog every (minutes)" Classes="muted" /><NumericUpDown Value="{Binding CheckIntervalMinutes}" Minimum="5" Maximum="1440" Width="160" /></StackPanel>
+                <StackPanel>
+                  <TextBlock Text="Check the catalog every (minutes)" Classes="muted" />
+                  <NumericUpDown
+                    Value="{Binding CheckIntervalMinutes}"
+                    Minimum="5"
+                    Maximum="1440"
+                    Width="160"
+                  />
+                </StackPanel>
               </StackPanel>
-              <ToggleSwitch IsChecked="{Binding Autostart}" OnContent="Start with the system (hidden in tray)" OffContent="Don't start with the system" />
-              <ToggleSwitch IsChecked="{Binding StartHidden}" OnContent="Start hidden in the tray" OffContent="Show the window on start" />
-              <ToggleSwitch IsChecked="{Binding NotifyNewGames}" OnContent="Notify when new games are posted" OffContent="Only notify about my games" />
-              <Button Classes="quiet" Content="Send a test notification" Command="{Binding TestNotificationCommand}" HorizontalAlignment="Left" />
+              <ToggleSwitch
+                IsChecked="{Binding Autostart}"
+                OnContent="Start with the system (hidden in tray)"
+                OffContent="Don't start with the system"
+              />
+              <ToggleSwitch
+                IsChecked="{Binding StartHidden}"
+                OnContent="Start hidden in the tray"
+                OffContent="Show the window on start"
+              />
+              <ToggleSwitch
+                IsChecked="{Binding NotifyNewGames}"
+                OnContent="Notify when new games are posted"
+                OffContent="Only notify about my games"
+              />
+              <Button
+                Classes="quiet"
+                Content="Send a test notification"
+                Command="{Binding TestNotificationCommand}"
+                HorizontalAlignment="Left"
+              />
             </StackPanel>
           </Border>
 
@@ -293,20 +624,47 @@
               <TextBlock Classes="mono muted" Text="{Binding ToolsLine}" TextWrapping="Wrap" />
               <TextBlock Classes="mono muted" Text="{Binding SecretsLine}" />
               <DockPanel>
-                <Button DockPanel.Dock="Right" Classes="quiet" Content="Open" Command="{Binding OpenConfigDirCommand}" />
-                <TextBlock Classes="mono muted" Text="{Binding ConfigDir}" VerticalAlignment="Center" />
+                <Button
+                  DockPanel.Dock="Right"
+                  Classes="quiet"
+                  Content="Open"
+                  Command="{Binding OpenConfigDirCommand}"
+                />
+                <TextBlock
+                  Classes="mono muted"
+                  Text="{Binding ConfigDir}"
+                  VerticalAlignment="Center"
+                />
               </DockPanel>
               <DockPanel>
-                <Button DockPanel.Dock="Right" Classes="quiet" Content="Open" Command="{Binding OpenLogDirCommand}" />
-                <TextBlock Classes="mono muted" Text="{Binding LogDir}" VerticalAlignment="Center" />
+                <Button
+                  DockPanel.Dock="Right"
+                  Classes="quiet"
+                  Content="Open"
+                  Command="{Binding OpenLogDirCommand}"
+                />
+                <TextBlock
+                  Classes="mono muted"
+                  Text="{Binding LogDir}"
+                  VerticalAlignment="Center"
+                />
               </DockPanel>
-              <ToggleSwitch IsChecked="{Binding VerboseLogging}" OnContent="Verbose log (HTTP status codes, solver steps, page sizes)" OffContent="Normal log (resolve, download, install, errors)" />
+              <ToggleSwitch
+                IsChecked="{Binding VerboseLogging}"
+                OnContent="Verbose log (HTTP status codes, solver steps, page sizes)"
+                OffContent="Normal log (resolve, download, install, errors)"
+              />
             </StackPanel>
           </Border>
 
           <StackPanel Orientation="Horizontal" Spacing="12">
             <Button Classes="primary" Content="Save changes" Command="{Binding SaveCommand}" />
-            <TextBlock Classes="muted" Text="{Binding SaveStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock
+              Classes="muted"
+              Text="{Binding SaveStatus}"
+              VerticalAlignment="Center"
+              TextWrapping="Wrap"
+            />
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
@@ -315,35 +673,103 @@
 
   <Grid ColumnDefinitions="208,*">
     <!-- Nav rail -->
-    <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+    <Border
+      Background="{StaticResource Panel}"
+      BorderBrush="{StaticResource Line}"
+      BorderThickness="0,0,1,0"
+    >
       <DockPanel Margin="12,18,12,14">
         <StackPanel DockPanel.Dock="Top" Margin="8,0,0,18" Orientation="Horizontal" Spacing="10">
           <Image Source="avares://steamrip-desktop/Assets/app.png" Width="22" Height="22" />
-          <TextBlock Text="SteamRIP" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+          <TextBlock
+            Text="SteamRIP"
+            FontWeight="SemiBold"
+            FontSize="15"
+            VerticalAlignment="Center"
+          />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="8,0,0,0">
           <StackPanel Orientation="Horizontal" Spacing="8">
-            <Ellipse Classes="dot" Fill="{StaticResource Green}" IsVisible="{Binding SolverHealthy}" />
-            <Ellipse Classes="dot" Fill="{StaticResource Red}" IsVisible="{Binding !SolverHealthy}" />
-            <TextBlock Classes="muted" FontSize="11" Text="FlareSolverr" ToolTip.Tip="{Binding SolverLine}" />
+            <Ellipse
+              Classes="dot"
+              Fill="{StaticResource Green}"
+              IsVisible="{Binding SolverHealthy}"
+            />
+            <Ellipse
+              Classes="dot"
+              Fill="{StaticResource Red}"
+              IsVisible="{Binding !SolverHealthy}"
+            />
+            <TextBlock
+              Classes="muted"
+              FontSize="11"
+              Text="FlareSolverr"
+              ToolTip.Tip="{Binding SolverLine}"
+            />
           </StackPanel>
           <TextBlock Classes="muted" FontSize="11" Text="{Binding SyncLine}" TextWrapping="Wrap" />
-          <Button Classes="quiet" Content="Sync now" Command="{Binding SyncNowCommand}" IsEnabled="{Binding !Syncing}" HorizontalAlignment="Left" Padding="10,4" FontSize="12" />
+          <Button
+            Classes="quiet"
+            Content="Sync now"
+            Command="{Binding SyncNowCommand}"
+            IsEnabled="{Binding !Syncing}"
+            HorizontalAlignment="Left"
+            Padding="10,4"
+            FontSize="12"
+          />
         </StackPanel>
 
         <StackPanel Spacing="2">
-          <Button Classes="nav" Content="Library" Command="{Binding NavigateCommand}" CommandParameter="Library" Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Library}" />
-          <Button Classes="nav" Content="Browse" Command="{Binding NavigateCommand}" CommandParameter="Browse" Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Browse}" />
-          <Button Classes="nav" Command="{Binding NavigateCommand}" CommandParameter="Queue" Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Queue}">
+          <Button
+            Classes="nav"
+            Content="Library"
+            Command="{Binding NavigateCommand}"
+            CommandParameter="Library"
+            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Library}"
+          />
+          <Button
+            Classes="nav"
+            Content="Browse"
+            Command="{Binding NavigateCommand}"
+            CommandParameter="Browse"
+            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Browse}"
+          />
+          <Button
+            Classes="nav"
+            Command="{Binding NavigateCommand}"
+            CommandParameter="Queue"
+            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Queue}"
+          >
             <DockPanel>
-              <Border DockPanel.Dock="Right" Classes="pill amber" IsVisible="{Binding QueueCount}"><TextBlock FontSize="11" Text="{Binding QueueCount}" /></Border>
-              <Border DockPanel.Dock="Right" Classes="pill" Margin="0,0,4,0" IsVisible="{Binding AttentionCount}"><TextBlock FontSize="11" Classes="red" Text="{Binding AttentionCount}" /></Border>
+              <Border DockPanel.Dock="Right" Classes="pill amber" IsVisible="{Binding QueueCount}">
+                <TextBlock FontSize="11" Text="{Binding QueueCount}" />
+              </Border>
+              <Border
+                DockPanel.Dock="Right"
+                Classes="pill"
+                Margin="0,0,4,0"
+                IsVisible="{Binding AttentionCount}"
+              >
+                <TextBlock FontSize="11" Classes="red" Text="{Binding AttentionCount}" />
+              </Border>
               <TextBlock Text="Queue" />
             </DockPanel>
           </Button>
-          <Button Classes="nav" Content="Activity" Command="{Binding NavigateCommand}" CommandParameter="Activity" Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Activity}" />
-          <Button Classes="nav" Content="Settings" Command="{Binding NavigateCommand}" CommandParameter="Settings" Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Settings}" />
+          <Button
+            Classes="nav"
+            Content="Activity"
+            Command="{Binding NavigateCommand}"
+            CommandParameter="Activity"
+            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Activity}"
+          />
+          <Button
+            Classes="nav"
+            Content="Settings"
+            Command="{Binding NavigateCommand}"
+            CommandParameter="Settings"
+            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Settings}"
+          />
         </StackPanel>
       </DockPanel>
     </Border>

@@ -19,8 +19,9 @@ class Program
 
     public static string ShowRequestPath => Path.Combine(Core.Data.Settings.DefaultDir, ".show");
 
-    public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
+    public static AppBuilder BuildAvaloniaApp() =>
+        AppBuilder
+            .Configure<App>()
             .UsePlatformDetect()
 #if DEBUG
             .WithDeveloperTools()

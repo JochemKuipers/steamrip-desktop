@@ -33,10 +33,16 @@ public class CatalogTests
         Assert.Equal(2584270, mortal.SteamAppId);
         Assert.Equal("66.1 GB", mortal.SizeText);
         Assert.Equal(new DateTime(2026, 11, 6, 15, 29, 26, DateTimeKind.Utc), mortal.ModifiedUtc);
-        Assert.Contains(mortal.Mirrors, m => m.Host == Hoster.FileDitch && m.Url.Contains("Mortal-Shell2"));
+        Assert.Contains(
+            mortal.Mirrors,
+            m => m.Host == Hoster.FileDitch && m.Url.Contains("Mortal-Shell2")
+        );
 
         Assert.All(posts, p => Assert.NotEmpty(p.Mirrors));
-        Assert.True(posts.Count(p => p.Mirrors.Any(m => m.Host != Hoster.Unknown)) >= 38, "almost every post should have a recognised hoster");
+        Assert.True(
+            posts.Count(p => p.Mirrors.Any(m => m.Host != Hoster.Unknown)) >= 38,
+            "almost every post should have a recognised hoster"
+        );
     }
 
     [Theory]
@@ -48,14 +54,25 @@ public class CatalogTests
     [InlineData("https://megadb.net/235fbe4f4789793f", Hoster.MegaDb)]
     [InlineData("https://1fichier.com/?abc", Hoster.Fichier)]
     [InlineData("https://example.com/x", Hoster.Unknown)]
-    public void Detects_hosters(string url, Hoster expected) => Assert.Equal(expected, HosterDetector.Detect(url));
+    public void Detects_hosters(string url, Hoster expected) =>
+        Assert.Equal(expected, HosterDetector.Detect(url));
 
     [Fact]
     public void Update_detection_uses_version_key_not_modified_date()
     {
         var posts = CatalogParser.Parse(Fixture.Read("posts_page1.json"));
         var post = posts.Single(p => p.Id == 57136);
-        var installed = new InstalledGame(post.Id, post.Slug, post.Name, "26315250", "/x", DateTime.UtcNow, true, InstallState.Installed, null);
+        var installed = new InstalledGame(
+            post.Id,
+            post.Slug,
+            post.Name,
+            "26315250",
+            "/x",
+            DateTime.UtcNow,
+            true,
+            InstallState.Installed,
+            null
+        );
         Assert.False(UpdateDetector.IsUpdate(installed, post)); // same build (normalised "Build " prefix)
 
         var newer = post with { Build = "Build 26400000" };
@@ -65,14 +82,21 @@ public class CatalogTests
         Assert.False(UpdateDetector.IsUpdate(installed, noBuild)); // unknown → don't churn
 
         var titleOnly = post with { Build = null, TitleVersion = "v2.0" };
-        Assert.True(UpdateDetector.IsUpdate(installed with { InstalledVersion = "v1.0" }, titleOnly));
-        Assert.False(UpdateDetector.IsUpdate(installed with { InstalledVersion = "v2.0" }, titleOnly));
+        Assert.True(
+            UpdateDetector.IsUpdate(installed with { InstalledVersion = "v1.0" }, titleOnly)
+        );
+        Assert.False(
+            UpdateDetector.IsUpdate(installed with { InstalledVersion = "v2.0" }, titleOnly)
+        );
     }
 
     [Fact]
     public void Database_roundtrips_posts_and_installs()
     {
-        var path = Path.Combine(Path.GetTempPath(), "sr-test-" + Guid.NewGuid().ToString("N") + ".db");
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            "sr-test-" + Guid.NewGuid().ToString("N") + ".db"
+        );
         try
         {
             using var db = new Database(path);
@@ -90,13 +114,36 @@ public class CatalogTests
             Assert.Equal("Build 1", db.GetPost(57136)!.Build);
             Assert.Equal(40, db.PostCount());
 
-            db.UpsertInstall(new InstalledGame(57136, back.Slug, back.Name, "26315250", "/games/x", DateTime.UtcNow, true, InstallState.Installed, null));
+            db.UpsertInstall(
+                new InstalledGame(
+                    57136,
+                    back.Slug,
+                    back.Name,
+                    "26315250",
+                    "/games/x",
+                    DateTime.UtcNow,
+                    true,
+                    InstallState.Installed,
+                    null
+                )
+            );
             Assert.Single(db.GetInstalls());
             db.SetInstallState(57136, InstallState.Failed, "boom");
             Assert.Equal("boom", db.GetInstall(57136)!.LastError);
-            db.SetKv("k", "v"); Assert.Equal("v", db.GetKv("k"));
-            db.LogEvent("test", "hello"); Assert.Contains(db.RecentEvents(), e => e.Message == "hello");
+            db.SetKv("k", "v");
+            Assert.Equal("v", db.GetKv("k"));
+            db.LogEvent("test", "hello");
+            Assert.Contains(db.RecentEvents(), e => e.Message == "hello");
         }
-        finally { foreach (var f in Directory.GetFiles(Path.GetDirectoryName(path)!, Path.GetFileName(path) + "*")) File.Delete(f); }
+        finally
+        {
+            foreach (
+                var f in Directory.GetFiles(
+                    Path.GetDirectoryName(path)!,
+                    Path.GetFileName(path) + "*"
+                )
+            )
+                File.Delete(f);
+        }
     }
 }

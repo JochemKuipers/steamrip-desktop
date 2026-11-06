@@ -12,9 +12,17 @@ public static class UpdateDetector
     public static bool IsUpdate(InstalledGame installed, CatalogPost post)
     {
         var current = post.VersionKey;
-        if (current is null) return false; // can't tell; don't churn
-        return !string.Equals(Normalize(current), Normalize(installed.InstalledVersion), StringComparison.OrdinalIgnoreCase);
+        if (current is null)
+            return false; // can't tell; don't churn
+        return !string.Equals(
+            Normalize(current),
+            Normalize(installed.InstalledVersion),
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
-    public static string? Normalize(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim().Replace("Build ", "", StringComparison.OrdinalIgnoreCase).Trim();
+    public static string? Normalize(string? v) =>
+        string.IsNullOrWhiteSpace(v)
+            ? null
+            : v.Trim().Replace("Build ", "", StringComparison.OrdinalIgnoreCase).Trim();
 }

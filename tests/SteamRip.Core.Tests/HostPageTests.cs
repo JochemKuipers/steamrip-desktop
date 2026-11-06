@@ -7,7 +7,9 @@ public class HostPageTests
     [Fact]
     public void FileDitch_solved_page_yields_signed_cdn_url_with_expiry()
     {
-        var (url, expires, fileName) = HostPages.ParseFileDitch(Fixture.Read("fileditch_solved.html"));
+        var (url, expires, fileName) = HostPages.ParseFileDitch(
+            Fixture.Read("fileditch_solved.html")
+        );
         Assert.StartsWith("https://lumisleepsby10pm.xyz/", url);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1794033476).UtcDateTime, expires);
         Assert.Equal("CONTROL-Resonant-SteamRIP.com.rar", fileName);
@@ -16,7 +18,9 @@ public class HostPageTests
     [Fact]
     public void FileDitch_interstitial_is_reported_as_such()
     {
-        var ex = Assert.Throws<FormatException>(() => HostPages.ParseFileDitch(Fixture.Read("fileditch_interstitial.html")));
+        var ex = Assert.Throws<FormatException>(() =>
+            HostPages.ParseFileDitch(Fixture.Read("fileditch_interstitial.html"))
+        );
         Assert.Contains("verification", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 

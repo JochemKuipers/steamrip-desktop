@@ -6,7 +6,10 @@ namespace SteamRip.Core.Catalog;
 /// <summary>Splits "Game Name Free Download (v1.2.3 + Co-op)" into name and version. Theme-specific; fixture-tested.</summary>
 public static partial class TitleParser
 {
-    [GeneratedRegex(@"^(?<name>.+?)\s+Free\s+Downl?oad(?:\s+[^()]*?)?\s*(?:\((?<ver>[^)]*)\))?\s*$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(
+        @"^(?<name>.+?)\s+Free\s+Downl?oad(?:\s+[^()]*?)?\s*(?:\((?<ver>[^)]*)\))?\s*$",
+        RegexOptions.IgnoreCase
+    )]
     private static partial Regex TitleRegex();
 
     public static (string Name, string? Version) Parse(string rawTitle)

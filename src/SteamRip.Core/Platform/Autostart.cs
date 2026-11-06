@@ -5,12 +5,15 @@ public static class Autostart
 {
     private const string AppId = "steamrip-desktop";
 
-    public static string ExecutablePath => Environment.ProcessPath ?? System.Reflection.Assembly.GetEntryAssembly()!.Location;
+    public static string ExecutablePath =>
+        Environment.ProcessPath ?? System.Reflection.Assembly.GetEntryAssembly()!.Location;
 
     public static bool IsEnabled()
     {
-        if (OperatingSystem.IsLinux()) return File.Exists(DesktopFilePath());
-        if (OperatingSystem.IsWindows()) return ReadRunValue() is not null;
+        if (OperatingSystem.IsLinux())
+            return File.Exists(DesktopFilePath());
+        if (OperatingSystem.IsWindows())
+            return ReadRunValue() is not null;
         return false;
     }
 
@@ -19,9 +22,16 @@ public static class Autostart
         if (OperatingSystem.IsLinux())
         {
             var path = DesktopFilePath();
-            if (!enabled) { if (File.Exists(path)) File.Delete(path); return; }
+            if (!enabled)
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+                return;
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, $"""
+            File.WriteAllText(
+                path,
+                $"""
                 [Desktop Entry]
                 Type=Application
                 Name=SteamRIP Desktop
@@ -32,7 +42,8 @@ public static class Autostart
                 X-GNOME-Autostart-enabled=true
                 X-KDE-autostart-after=panel
 
-                """);
+                """
+            );
         }
         else if (OperatingSystem.IsWindows())
         {
@@ -42,21 +53,35 @@ public static class Autostart
 
     private static string DesktopFilePath()
     {
-        var cfg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } x ? x : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
+        var cfg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") is { Length: > 0 } x
+            ? x
+            : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".config"
+            );
         return Path.Combine(cfg, "autostart", AppId + ".desktop");
     }
 
     private static string? ReadRunValue()
     {
-        if (!OperatingSystem.IsWindows()) return null;
-        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
+        if (!OperatingSystem.IsWindows())
+            return null;
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Run"
+        );
         return key?.GetValue("SteamRIP Desktop") as string;
     }
 
     private static void WriteRunValue(string? value)
     {
-        if (!OperatingSystem.IsWindows()) return;
-        using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run");
-        if (value is null) key.DeleteValue("SteamRIP Desktop", false); else key.SetValue("SteamRIP Desktop", value);
+        if (!OperatingSystem.IsWindows())
+            return;
+        using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(
+            @"Software\Microsoft\Windows\CurrentVersion\Run"
+        );
+        if (value is null)
+            key.DeleteValue("SteamRIP Desktop", false);
+        else
+            key.SetValue("SteamRIP Desktop", value);
     }
 }

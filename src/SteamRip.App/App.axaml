@@ -1,8 +1,9 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="SteamRip.App.App"
-             RequestedThemeVariant="Dark">
-
+<Application
+  xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  x:Class="SteamRip.App.App"
+  RequestedThemeVariant="Dark"
+>
   <Application.Resources>
     <!-- Palette: ink + amber. One accent, spent on progress and pending updates. -->
     <Color x:Key="InkColor">#141821</Color>
@@ -24,7 +25,9 @@
     <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}" />
     <SolidColorBrush x:Key="Green" Color="{StaticResource GreenColor}" />
     <SolidColorBrush x:Key="Red" Color="{StaticResource RedColor}" />
-    <FontFamily x:Key="Mono">JetBrains Mono, Cascadia Code, Fira Code, DejaVu Sans Mono, Consolas, monospace</FontFamily>
+    <FontFamily x:Key="Mono">
+      JetBrains Mono, Cascadia Code, Fira Code, DejaVu Sans Mono, Consolas, monospace
+    </FontFamily>
   </Application.Resources>
 
   <Application.Styles>
@@ -34,12 +37,20 @@
 
   <TrayIcon.Icons>
     <TrayIcons>
-      <TrayIcon Icon="avares://steamrip-desktop/Assets/tray.png" ToolTipText="SteamRIP Desktop" Clicked="TrayIcon_OnClicked">
+      <TrayIcon
+        Icon="avares://steamrip-desktop/Assets/tray.png"
+        ToolTipText="SteamRIP Desktop"
+        Clicked="TrayIcon_OnClicked"
+      >
         <TrayIcon.Menu>
           <NativeMenu>
             <NativeMenuItem Header="Open library" Click="Show_OnClick" />
             <NativeMenuItem Header="Check for updates now" Click="CheckNow_OnClick" />
-            <NativeMenuItem Header="Pause auto-updates" ToggleType="CheckBox" Click="Pause_OnClick" />
+            <NativeMenuItem
+              Header="Pause auto-updates"
+              ToggleType="CheckBox"
+              Click="Pause_OnClick"
+            />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Quit" Click="Quit_OnClick" />
           </NativeMenu>
