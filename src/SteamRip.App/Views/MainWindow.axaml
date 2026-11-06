@@ -173,7 +173,7 @@
                               />
                               <TextBox
                                 Text="{Binding LaunchArgs}"
-                                Watermark="-windowed -nosplash"
+                                PlaceholderText="-windowed -nosplash"
                                 FontFamily="{StaticResource Mono}"
                                 FontSize="12"
                               />
@@ -248,7 +248,7 @@
         </StackPanel>
         <TextBox
           DockPanel.Dock="Top"
-          Watermark="Search by name…"
+          PlaceholderText="Search by name…"
           Text="{Binding Query}"
           Margin="0,0,0,8"
         />
@@ -571,7 +571,7 @@
                 />
                 <TextBox
                   Text="{Binding FlareSolverrUrl, UpdateSourceTrigger=PropertyChanged}"
-                  Watermark="http://192.168.1.10:8191"
+                  PlaceholderText="http://192.168.1.10:8191"
                   FontFamily="{StaticResource Mono}"
                   FontSize="12"
                 />

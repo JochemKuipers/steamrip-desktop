@@ -207,7 +207,7 @@ public sealed partial class LibraryItem : ObservableObject
         _running = running;
         if (exeChanged)
             RefreshExes();
-        if (_launchArgs != (game.LaunchArgs ?? ""))
+        if (LaunchArgs != (game.LaunchArgs ?? ""))
             LaunchArgs = game.LaunchArgs ?? "";
         OnPropertyChanged(string.Empty);
     }
