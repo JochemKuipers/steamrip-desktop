@@ -1,0 +1,50 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SteamRip.App.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <!-- Palette: ink + amber. One accent, spent on progress and pending updates. -->
+    <Color x:Key="InkColor">#141821</Color>
+    <Color x:Key="PanelColor">#1B2130</Color>
+    <Color x:Key="RaisedColor">#232B3D</Color>
+    <Color x:Key="LineColor">#2E3750</Color>
+    <Color x:Key="TextColor">#E6E9F0</Color>
+    <Color x:Key="MutedColor">#8A93A6</Color>
+    <Color x:Key="AmberColor">#F2B544</Color>
+    <Color x:Key="GreenColor">#58C28A</Color>
+    <Color x:Key="RedColor">#E0645A</Color>
+
+    <SolidColorBrush x:Key="Ink" Color="{StaticResource InkColor}" />
+    <SolidColorBrush x:Key="Panel" Color="{StaticResource PanelColor}" />
+    <SolidColorBrush x:Key="Raised" Color="{StaticResource RaisedColor}" />
+    <SolidColorBrush x:Key="Line" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}" />
+    <SolidColorBrush x:Key="Muted" Color="{StaticResource MutedColor}" />
+    <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}" />
+    <SolidColorBrush x:Key="Green" Color="{StaticResource GreenColor}" />
+    <SolidColorBrush x:Key="Red" Color="{StaticResource RedColor}" />
+    <FontFamily x:Key="Mono">JetBrains Mono, Cascadia Code, Fira Code, DejaVu Sans Mono, Consolas, monospace</FontFamily>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://steamrip-desktop/Views/Styles.axaml" />
+  </Application.Styles>
+
+  <TrayIcon.Icons>
+    <TrayIcons>
+      <TrayIcon Icon="avares://steamrip-desktop/Assets/tray.png" ToolTipText="SteamRIP Desktop" Clicked="TrayIcon_OnClicked">
+        <TrayIcon.Menu>
+          <NativeMenu>
+            <NativeMenuItem Header="Open library" Click="Show_OnClick" />
+            <NativeMenuItem Header="Check for updates now" Click="CheckNow_OnClick" />
+            <NativeMenuItem Header="Pause auto-updates" ToggleType="CheckBox" Click="Pause_OnClick" />
+            <NativeMenuItemSeparator />
+            <NativeMenuItem Header="Quit" Click="Quit_OnClick" />
+          </NativeMenu>
+        </TrayIcon.Menu>
+      </TrayIcon>
+    </TrayIcons>
+  </TrayIcon.Icons>
+</Application>

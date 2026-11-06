@@ -1,0 +1,86 @@
+using System.Diagnostics;
+using System.Text.RegularExpressions;
+
+namespace SteamRip.Core.Install;
+
+/// <summary>Shells out to unrar/7z. Linux: whatever is on PATH. Windows: a bundled <c>7za.exe</c> next to the app, or 7-Zip's install dir.</summary>
+public sealed partial class ArchiveTool
+{
+    [GeneratedRegex(@"(\d{1,3})%")]
+    private static partial Regex Percent();
+
+    public string? UnrarPath { get; init; } = Find("unrar");
+    public string? SevenZipPath { get; init; } = Find("7z") ?? Find("7za") ?? Find("7zz") ?? Find("7zr");
+
+    public bool Available => UnrarPath is not null || SevenZipPath is not null;
+    public string Describe() => $"unrar: {UnrarPath ?? "missing"}, 7z: {SevenZipPath ?? "missing"}";
+
+    public async Task<bool> TestAsync(string archive, CancellationToken ct)
+    {
+        var (exe, args) = UnrarPath is not null && archive.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)
+            ? (UnrarPath, new[] { "t", "-y", "-idq", archive })
+            : (SevenZipPath ?? throw new InvalidOperationException("No archive tool found"), new[] { "t", archive, "-y", "-bso0", "-bsp0" });
+        var code = await RunAsync(exe, args, null, null, ct);
+        return code == 0;
+    }
+
+    public async Task ExtractAsync(string archive, string destination, IProgress<int>? percent, CancellationToken ct)
+    {
+        Directory.CreateDirectory(destination);
+        var (exe, args) = UnrarPath is not null && archive.EndsWith(".rar", StringComparison.OrdinalIgnoreCase)
+            ? (UnrarPath, new[] { "x", "-y", "-o+", archive, destination.TrimEnd('/', '\\') + Path.DirectorySeparatorChar })
+            : (SevenZipPath ?? throw new InvalidOperationException("No archive tool found"), new[] { "x", archive, "-o" + destination, "-y", "-bsp1", "-bso0" });
+        var code = await RunAsync(exe, args, percent, null, ct);
+        if (code != 0) throw new InvalidOperationException($"{Path.GetFileName(exe)} exited with {code}");
+    }
+
+    private static async Task<int> RunAsync(string exe, string[] args, IProgress<int>? percent, Action<string>? log, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo(exe) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException("failed to start " + exe);
+        var last = -1;
+        var reader = Task.Run(async () =>
+        {
+            var buf = new char[256];
+            int n;
+            while ((n = await p.StandardOutput.ReadAsync(buf, ct)) > 0)
+            {
+                var chunk = new string(buf, 0, n);
+                log?.Invoke(chunk);
+                foreach (Match m in Percent().Matches(chunk))
+                {
+                    var v = int.Parse(m.Groups[1].Value);
+                    if (v != last && v <= 100) { last = v; percent?.Report(v); }
+                }
+            }
+        }, ct);
+        var errTask = p.StandardError.ReadToEndAsync(ct);
+        using var reg = ct.Register(() => { try { p.Kill(true); } catch { } });
+        await p.WaitForExitAsync(ct);
+        await Task.WhenAll(reader, errTask);
+        return p.ExitCode;
+    }
+
+    public static string? Find(string name)
+    {
+        var exeNames = OperatingSystem.IsWindows() ? new[] { name + ".exe", name } : new[] { name };
+        var dirs = new List<string>();
+        dirs.Add(AppContext.BaseDirectory);
+        dirs.Add(Path.Combine(AppContext.BaseDirectory, "tools"));
+        dirs.AddRange((Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+        if (OperatingSystem.IsWindows())
+        {
+            dirs.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "7-Zip"));
+            dirs.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "7-Zip"));
+            dirs.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "WinRAR"));
+        }
+        foreach (var d in dirs)
+            foreach (var e in exeNames)
+            {
+                var p = Path.Combine(d, e);
+                if (File.Exists(p)) return p;
+            }
+        return null;
+    }
+}
