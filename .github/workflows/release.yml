@@ -58,7 +58,7 @@ jobs:
     outputs:
       deb_sha256: ${{ steps.sums.outputs.deb_sha256 }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
