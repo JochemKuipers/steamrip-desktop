@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=SteamRIP Desktop
+Comment=Keeps your SteamRIP library synced, installed and up to date
+Exec=steamrip-desktop --show
+Icon=steamrip-desktop
+Terminal=false
+Categories=Game;Utility;
+Keywords=steamrip;games;library;proton;
+StartupWMClass=steamrip-desktop

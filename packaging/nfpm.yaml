@@ -1,0 +1,63 @@
+# nfpm (https://nfpm.goreleaser.com) builds the .deb, .rpm and Arch .pkg.tar.zst from this one file.
+# scripts/package.sh publishes the binary first and exports VERSION; nfpm expands ${VERSION} here.
+name: steamrip-desktop
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: semver
+release: "1"
+section: games
+priority: optional
+maintainer: Jochem Kuipers <jochem@kuipers.cc>
+vendor: Jochem Kuipers
+homepage: https://github.com/JochemKuipers/steamrip-desktop
+description: |
+  Tray app that keeps a steamrip.com game library synced, installed, launched (Proton via umu) and updated.
+  Self-contained .NET build; no runtime needed.
+
+contents:
+  - src: out/linux-x64/steamrip-desktop
+    dst: /usr/bin/steamrip-desktop
+    file_info:
+      mode: 0755
+  - src: packaging/linux/steamrip-desktop.desktop
+    dst: /usr/share/applications/steamrip-desktop.desktop
+  - src: src/SteamRip.App/Assets/app.png
+    dst: /usr/share/icons/hicolor/256x256/apps/steamrip-desktop.png
+
+# Avalonia's X11 backend (also under XWayland) and fontconfig are the only hard runtime needs.
+# Archive tools, the launcher and the keyring helper are discovered on PATH at run time, so they are soft.
+overrides:
+  deb:
+    depends:
+      - libx11-6
+      - libice6
+      - libsm6
+      - libfontconfig1
+    recommends:
+      - unrar | 7zip | p7zip-full
+      - libsecret-tools
+      - wine
+  rpm:
+    depends:
+      - libX11
+      - libICE
+      - libSM
+      - fontconfig
+    recommends:
+      - unrar
+      - libsecret
+      - wine
+  archlinux:
+    depends:
+      - libx11
+      - libice
+      - libsm
+      - fontconfig
+      - unrar
+      - umu-launcher
+      - libsecret
+
+archlinux:
+  packager: Jochem Kuipers <jochem@kuipers.cc>
+  pkgbase: steamrip-desktop

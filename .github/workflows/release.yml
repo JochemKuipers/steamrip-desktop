@@ -1,0 +1,137 @@
+# Cut a release by pushing a tag: `make release VERSION=1.2.3` (runs the full gate, tags v1.2.3, pushes).
+# This builds every package, publishes a GitHub Release with auto-generated notes, and updates the AUR package.
+# Tags with a pre-release suffix (v1.2.3-rc1) are marked pre-release and skip the AUR update.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+
+jobs:
+  linux:
+    name: Linux packages (deb, rpm, Arch, AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Gate (build with warnings as errors, tests)
+        run: |
+          dotnet build -c Release
+          dotnet test -c Release --no-build
+      - run: VERSION="${GITHUB_REF_NAME#v}" scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: ./scripts/package-windows.ps1 -Version ($env:GITHUB_REF_NAME.TrimStart('v'))
+        shell: pwsh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    outputs:
+      deb_sha256: ${{ steps.sums.outputs.deb_sha256 }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        id: sums
+        working-directory: dist
+        run: |
+          sha256sum ./* | sed 's|\./||' > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          echo "deb_sha256=$(sha256sum ./*.deb | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes header
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          {
+            echo "Self-contained builds; nothing else to install. Settings, library and database are kept across upgrades."
+            echo
+            echo "| Platform | Package | Install |"
+            echo "|---|---|---|"
+            echo "| Windows 10/11 x64 | \`steamrip-desktop-$v-setup.exe\` | run it (per-user, no admin) |"
+            echo "| Arch / CachyOS / Manjaro | AUR \`steamrip-desktop-bin\` | \`paru -S steamrip-desktop-bin\`, or \`sudo pacman -U\` the \`.pkg.tar.zst\` |"
+            echo "| Debian / Ubuntu / Mint | \`.deb\` | \`sudo apt install ./steamrip-desktop_${v}-1_amd64.deb\` |"
+            echo "| Fedora / openSUSE | \`.rpm\` | \`sudo dnf install ./steamrip-desktop-$v-1.x86_64.rpm\` |"
+            echo "| Any Linux | \`.AppImage\` | \`chmod +x\`, run |"
+            echo
+            echo "On Linux the app shells out to \`unrar\`/\`7z\`, \`umu-run\` (or \`wine\`) and \`secret-tool\`; the packages list them as dependencies or recommendations. A FlareSolverr instance is configured in Settings. Checksums in \`SHA256SUMS.txt\`."
+            echo
+          } > notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body_path: notes.md
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.exe
+            dist/*.deb
+            dist/*.rpm
+            dist/*.pkg.tar.zst
+            dist/*.AppImage
+            dist/SHA256SUMS.txt
+
+  aur:
+    name: AUR steamrip-desktop-bin
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Secrets are not visible to job-level `if`, so decide here and skip quietly when the AUR key is not set up.
+      - id: key
+        env:
+          HAS_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+        run: echo "present=$HAS_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Fill PKGBUILD
+        if: steps.key.outputs.present == 'true'
+        run: |
+          sed -e "s/@VERSION@/${GITHUB_REF_NAME#v}/" -e "s/@SHA256@/${{ needs.release.outputs.deb_sha256 }}/" \
+            packaging/aur/PKGBUILD > PKGBUILD
+          cat PKGBUILD
+
+      - uses: KSXGitHub/github-actions-deploy-aur@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          pkgname: steamrip-desktop-bin
+          pkgbuild: ./PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ github.ref_name }}
+          ssh_keyscan_types: rsa,ecdsa,ed25519

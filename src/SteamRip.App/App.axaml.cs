@@ -1,3 +1,4 @@
+using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -167,6 +168,21 @@ public partial class App : Application
 /// <summary>Composition root. Everything the UI needs, built once.</summary>
 public sealed class AppServices : IAsyncDisposable
 {
+    /// <summary>"1.2.3+abc1234" from the release tag and commit, or "0.0.0-dev+…" for local builds.</summary>
+    public static string Version { get; } = ShortVersion();
+
+    private static string ShortVersion()
+    {
+        var v =
+            typeof(AppServices)
+                .Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                ?.InformationalVersion
+            ?? typeof(AppServices).Assembly.GetName().Version?.ToString()
+            ?? "unknown";
+        var plus = v.IndexOf('+');
+        return plus > 0 && v.Length > plus + 8 ? v[..(plus + 8)] : v;
+    }
+
     public required Settings Settings { get; init; }
     public required Database Db { get; init; }
     public required HttpClient Http { get; init; }
@@ -200,7 +216,7 @@ public sealed class AppServices : IAsyncDisposable
         var log = loggers.CreateLogger("App");
         log.LogInformation(
             "SteamRIP Desktop {Version} starting on {OS} ({Arch}), .NET {Runtime}; args [{Args}]; config {Config}; log level {Level}",
-            typeof(App).Assembly.GetName().Version,
+            Version,
             System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture,
             Environment.Version,

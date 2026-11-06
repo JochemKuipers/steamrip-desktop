@@ -15,7 +15,8 @@ DEV_DB       := $(DEV_HOME)/steamrip-desktop/steamrip.db
 .DEFAULT_GOAL := help
 .PHONY: help setup tools hooks restore build rebuild test run run-dev run-hidden watch \
         format format-check lint inspect inspect-all inspect-html check ci \
-        publish publish-linux publish-win clean distclean logs log-tail db dev-reset
+        publish publish-linux publish-win package package-win release \
+        clean distclean logs log-tail db dev-reset
 
 ## ---- setup ---------------------------------------------------------------------------------
 
@@ -85,7 +86,7 @@ check: format-check rebuild test inspect ## All gates, same as the pre-push hook
 
 ci: check ## Alias for what CI runs
 
-## ---- publish -------------------------------------------------------------------------------
+## ---- publish ------------------------------------------------------------------------------
 
 publish: $(addprefix publish-,$(RIDS)) ## Self-contained single-file builds for every RID into $(OUT)/
 
@@ -98,11 +99,29 @@ publish-win: ## Publish win-x64 to $(OUT)/win-x64
 publish-%:
 	dotnet publish $(APP) -c Release -r $* -o $(OUT)/$* --nologo
 
+## ---- release -------------------------------------------------------------------------------
+
+package: ## Linux packages into dist/: .deb, .rpm, Arch .pkg.tar.zst, AppImage (nfpm + appimagetool are fetched into obj/tools)
+	scripts/package.sh
+
+package-win: ## Windows installer into dist/ (needs Windows + Inno Setup 6; CI does this on a windows runner)
+	pwsh scripts/package-windows.ps1
+
+release: ## Tag and push a release: make release VERSION=1.2.3 (clean tree + full gate first; GitHub Actions does the rest)
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=1.2.3"; exit 2; }
+	@echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' || { echo "VERSION must be semver, e.g. 1.2.3 or 1.2.3-rc1"; exit 2; }
+	@test -z "$$(git status --porcelain)" || { echo "working tree is not clean"; exit 2; }
+	@! git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null || { echo "tag v$(VERSION) already exists"; exit 2; }
+	$(MAKE) check
+	git tag -a "v$(VERSION)" -m "v$(VERSION)"
+	git push origin HEAD "v$(VERSION)"
+	@echo "Pushed v$(VERSION); the Release workflow will attach the packages: https://github.com/JochemKuipers/steamrip-desktop/releases/tag/v$(VERSION)"
+
 ## ---- housekeeping --------------------------------------------------------------------------
 
 clean: ## Remove build output
 	dotnet clean $(SLN) --nologo -v quiet
-	rm -rf $(OUT) obj/inspectcode* obj/jbcache
+	rm -rf $(OUT) dist obj/inspectcode* obj/jbcache
 
 distclean: clean ## Also remove every bin/ and obj/
 	find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +

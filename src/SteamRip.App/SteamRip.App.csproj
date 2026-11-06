@@ -8,6 +8,8 @@
         <SelfContained>true</SelfContained>
         <PublishSingleFile>true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <!-- Roughly halves the packages; costs ~100 ms at start. -->
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <RuntimeIdentifiers>linux-x64;win-x64</RuntimeIdentifiers>
     </PropertyGroup>
 

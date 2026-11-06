@@ -54,6 +54,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string SolverTest { get; set; } = "";
 
+    public string VersionLine => "SteamRIP Desktop " + AppServices.Version;
     public string ToolsLine => _s.Archive.Describe();
     public string SecretsLine => "Secrets backend: " + _s.Secrets.Backend;
     public string ConfigDir => Core.Data.Settings.DefaultDir;

@@ -15,11 +15,25 @@ Personal-use project. The code is what one person needs to run a game library ha
 - **Covers**: game art from Steam's public CDN via `steam_app_id`, lazy-loaded per card, cached on disk.
 - **Logging**: daily rotating log files under the config dir; live tail in the Activity view.
 
+## Install
+
+Every release on the [Releases page](https://github.com/JochemKuipers/steamrip-desktop/releases) ships self-contained packages; no .NET runtime to install. Upgrades keep settings, library and database.
+
+| Platform | Package | Install |
+| --- | --- | --- |
+| Windows 10/11 x64 | `steamrip-desktop-<v>-setup.exe` | run it (per-user, no admin; Start menu entry, uninstaller) |
+| Arch / CachyOS / Manjaro | AUR [`steamrip-desktop-bin`](https://aur.archlinux.org/packages/steamrip-desktop-bin) | `paru -S steamrip-desktop-bin` (or `sudo pacman -U` the `.pkg.tar.zst` from the release) |
+| Debian / Ubuntu / Mint | `.deb` | `sudo apt install ./steamrip-desktop_<v>-1_amd64.deb` |
+| Fedora / openSUSE | `.rpm` | `sudo dnf install ./steamrip-desktop-<v>-1.x86_64.rpm` |
+| Any Linux | `.AppImage` | `chmod +x`, run; autostart points at the AppImage file you keep |
+
+Unsigned binaries: Windows SmartScreen will warn on first run ("More info → Run anyway").
+
 ## Requirements
 
 | Linux | Windows |
 | --- | --- |
-| .NET 10 SDK (to build) | .NET 10 SDK (to build) |
+| .NET 10 SDK (to build from source only) | .NET 10 SDK (to build from source only) |
 | `unrar` or `7z` on PATH | 7-Zip or WinRAR installed, or `7za.exe` next to the binary |
 | `umu-run` (umu-launcher) and/or `wine`; a Proton build (Steam, Proton-GE, Proton-CachyOS) | — |
 | `secret-tool` (optional, keychain) | — |
@@ -44,12 +58,14 @@ Code is formatted by CSharpier (`dotnet csharpier format .`), checked by Roslyn 
 
 Flags: `--show` (open the window even if "start hidden" is on), `--hidden`, `--verbose` (debug-level log).
 
-Publish self-contained single-file binaries:
+## Releasing
 
 ```sh
-dotnet publish src/SteamRip.App -c Release -r linux-x64
-dotnet publish src/SteamRip.App -c Release -r win-x64
+make package                 # local: .deb, .rpm, Arch .pkg.tar.zst and AppImage into dist/ (nfpm + appimagetool fetched into obj/tools)
+make release VERSION=1.2.3   # clean tree + full gate, tags v1.2.3, pushes; GitHub Actions does the rest
 ```
+
+The [Release workflow](.github/workflows/release.yml) builds the Linux packages on Ubuntu and the installer (Inno Setup) on Windows, publishes a GitHub Release with generated notes and `SHA256SUMS.txt`, then updates the AUR package from the released `.deb`. A `-rc1` suffix marks a pre-release and skips the AUR step. CI runs the same gates plus both packaging jobs on every push and PR, so the Windows build is proven on a Windows runner.
 
 ## Where things live
 

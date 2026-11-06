@@ -53,3 +53,13 @@ Locks in: the prefix is a per-game artifact that lives and dies with the game fo
 ## D12 — No spikes or scratch files in the repo
 
 Throwaway harnesses live under `/tmp/steamrip-spikes`, test profiles under `/tmp/sr-cfg`, test libraries under `/tmp/sr-lib`. Findings that matter are written into `docs/` and, where parseable, saved as fixtures under `tests/…/Fixtures/`.
+
+## D13 — Native packages per platform, no tarballs, no bundled runtime (Nov 6 2026)
+
+Owner: "I want proper packages: deb, rpm, AppImage, AUR for Linux, exe for Windows. I don't like tarball releases."
+
+Choice: one self-contained single-file `dotnet publish` per OS (compressed, ~90 MB installed), wrapped as `.deb`/`.rpm`/Arch `.pkg.tar.zst` by nfpm from a single `packaging/nfpm.yaml`, as an AppImage by appimagetool, and as a per-user Inno Setup installer on Windows (`%LOCALAPPDATA%\Programs`, no UAC, closes and restarts the tray app on upgrade, removes the HKCU Run value on uninstall). The AUR package is `steamrip-desktop-bin` and repacks the released `.deb`, so there is exactly one Linux binary to debug. Builds are tag-driven (`make release VERSION=`), published by GitHub Actions with generated notes and checksums.
+
+Rejected: Flatpak (the sandbox breaks shelling out to `unrar`, `umu-run`, `wine`, `secret-tool` and writing into an arbitrary library folder); Snap (same, plus confinement of `~/Games`); MSIX/Store (signing and identity requirements for a single-user app); framework-dependent builds (would make "install .NET 10" the first manual step); code signing (cost; SmartScreen warning accepted and documented).
+
+Locks in: the binary is `/usr/bin/steamrip-desktop` with the icon name `steamrip-desktop` in hicolor, which the app's own autostart `.desktop` relies on; `Autostart.ExecutablePath` prefers `$APPIMAGE`. Revisit if the app grows a self-updater (Velopack would replace the installers) or if a maintainer wants Flatpak badly enough to add portals.

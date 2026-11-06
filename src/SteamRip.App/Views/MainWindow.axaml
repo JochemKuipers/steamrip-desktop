@@ -748,6 +748,7 @@
                     <Border Classes="card">
                         <StackPanel Spacing="6">
                             <TextBlock FontWeight="SemiBold" Text="On this machine" />
+                            <TextBlock Classes="mono muted" Text="{Binding VersionLine}" />
                             <TextBlock
                                 Classes="mono muted"
                                 Text="{Binding ToolsLine}"

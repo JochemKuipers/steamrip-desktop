@@ -27,6 +27,9 @@ src/SteamRip.Core/                 # everything testable; no Avalonia reference
 src/SteamRip.App/                  # Avalonia: App.axaml(.cs) with TrayIcon + AppServices, ViewModels/, Views/
 tests/SteamRip.Core.Tests/         # xunit; Fixtures/ holds saved HTML/JSON from real hosters
 docs/                              # research, hosters, architecture, decisions
+packaging/                         # nfpm.yaml (deb/rpm/arch), linux/*.desktop, aur/PKGBUILD template, windows/setup.iss
+scripts/                           # inspect.sh (ReSharper), package.sh (Linux packages), package-windows.ps1 (installer)
+.github/                           # workflows/ci.yml, workflows/release.yml, actions/setup, dependabot.yml
 ```
 
 Keep this shape. Do not add a project per hoster, a plugin system, DI container, or EF Core. `Core` must stay free of Avalonia.
@@ -36,7 +39,7 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ```sh
 make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
 make build        # whole solution; analyzers on, warnings are errors
-make test         # 34 tests, ~1 s, no network
+make test         # 35 tests, ~1 s, no network
 make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
 make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
 make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails
@@ -47,7 +50,7 @@ The Makefile is a thin wrapper; the underlying commands are `dotnet tool restore
 
 ## Code quality gates
 
-Three tools, one source of truth (`.editorconfig`), all of them wired into the git hooks and `.gitlab-ci.yml`:
+Three tools, one source of truth (`.editorconfig`), all of them wired into the git hooks and `.github/workflows/ci.yml`:
 
 | Gate | Command | Owns |
 | --- | --- | --- |
@@ -101,6 +104,14 @@ A change to a resolver is not done until it has resolved and downloaded at least
 ## Machine facts (dev box, Nov 2026)
 
 CachyOS, KDE on Wayland, .NET 10.0.114, `unrar`, `7z`, `secret-tool`, `gdbus`, `umu-run` 1.4.3, `wine`. Proton builds at `/usr/share/steam/compatibilitytools.d/proton-cachyos-{slr,native}`, `~/.steam/root/compatibilitytools.d/Proton-CachyOS Latest`, `~/.local/share/Steam/steamapps/common/Proton - Experimental`. FlareSolverr (smeinecke fork, Chrome 154) at `http://192.168.2.251:8191`. Only Firefox is installed; Playwright downloads its own Chromium on first manual solve.
+
+## Releases and packaging
+
+Tag-driven: `make release VERSION=x.y.z` runs `make check`, tags `vx.y.z` and pushes; `.github/workflows/release.yml` builds and publishes. The version flows from the tag through `-p:Version=` (default `0.0.0-dev` in `Directory.Build.props`) into `AppServices.Version`, which the log and the Settings page show.
+
+Artifacts, all from one self-contained single-file publish per OS: `.deb`, `.rpm` and Arch `.pkg.tar.zst` from `packaging/nfpm.yaml` (nfpm), an AppImage from `packaging/linux/` (appimagetool), an Inno Setup installer from `packaging/windows/setup.iss` on a Windows runner, and the AUR `steamrip-desktop-bin` package (template `packaging/aur/PKGBUILD`), which repacks the released `.deb` so every distro gets the same binary. No tarballs or zips. Decision and reasons in `docs/decisions.md` D13.
+
+Rules: a change to what gets installed (binary name, icon, `.desktop`, autostart path) must be made in `packaging/` and verified with `make package` plus one run of the AppImage against the throwaway profile; `Autostart.ExecutablePath` honours `$APPIMAGE`. The AUR job needs the `AUR_SSH_PRIVATE_KEY`, `AUR_USERNAME` and `AUR_EMAIL` repository secrets and skips quietly without them. Nothing is code-signed.
 
 ## When you finish
 

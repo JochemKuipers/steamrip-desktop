@@ -5,8 +5,11 @@ public static class Autostart
 {
     private const string AppId = "steamrip-desktop";
 
+    /// <summary>Inside an AppImage the process runs from a transient mount; $APPIMAGE is the file the user keeps.</summary>
     public static string ExecutablePath =>
-        Environment.ProcessPath ?? System.Reflection.Assembly.GetEntryAssembly()!.Location;
+        Environment.GetEnvironmentVariable("APPIMAGE") is { Length: > 0 } appImage
+            ? appImage
+            : Environment.ProcessPath ?? System.Reflection.Assembly.GetEntryAssembly()!.Location;
 
     public static bool IsEnabled()
     {
