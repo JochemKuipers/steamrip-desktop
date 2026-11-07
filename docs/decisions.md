@@ -73,3 +73,15 @@ Choice: one `LaunchOptions` record (MangoHud, gamemode, gamescope + args, HDR, W
 Rejected: esync and NTSync toggles (esync is gone in Proton 10 and NTSync is chosen by wine from `/dev/ntsync`; both are indicator lines); gating env vars on what a build "knows" (unknown vars are inert, so always setting them is simpler and works for the umu default build we cannot inspect); Avalonia `Screens` for the gamescope size (Core stays Avalonia-free; `/sys/class/drm/*/modes` gives the same answer); a separate per-option settings column (JSON blob keeps migrations at one line).
 
 Locks in: `LaunchOptions` property names are the JSON keys in both `settings.json` and `launch_json`; renaming one silently resets that option for existing users, so add, do not rename.
+
+## D15 — GE-Proton is the default, DW-Proton is offered, UMU-Proton never (Nov 7 2026)
+
+Owner: "never enable umu proton by default pls proton 10 is way too old. use ge-proton as default", after a day of HDR debugging in Cyberpunk.
+
+Context: with `PROTONPATH` unset, umu 1.4.3 picks `UMU-Latest` = UMU-Proton-10.0-4, a Proton 10 build without the Wayland driver and without HDR auto-detection. The app used to force `DXVK_HDR=1` + `PROTON_ENABLE_HDR=1`, which on that build (and on Proton-CachyOS) produced PQ output onto what Wine considered an SDR display: grey blacks and dull colours.
+
+Choice: `Settings.DefaultProtonPath` defaults to the keyword `GE-Proton`, which umu downloads and keeps current itself (`PROTONPATH=GE-Proton`); `""` is read as the same. `DW-Proton` (Dawn Winery's Proton-CachyOS + GE patch set) is a second keyword, downloaded by `ProtonDownloader` from the GitHub mirror with SHA-512 verification because umu has no keyword for it. Both appear in the Settings list and the per-game list next to the locally found builds. HDR composition no longer sets any HDR env var; it only chooses the path (gamescope `--hdr-enabled` or Wine Wayland) and leaves detection to Proton, per the GE-Proton 11 documentation.
+
+Rejected: shipping our own umu `PROTONPATH` default of `UMU-Proton` (too old); checking GitHub on every launch (one check per 6 h, offline uses what is installed); a generic "Proton from any GitHub repo" feature (one hard-coded mirror, one archive layout, `// ponytail`).
+
+Locks in: `GE-Proton` and `DW-Proton` are stored verbatim in `settings.json` and `installs.proton`; they are identifiers, do not rename them.

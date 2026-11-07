@@ -28,7 +28,7 @@ flowchart LR
 | `Hosters` | `IHostResolver`, `FileDitchResolver`, `GoFileResolver`, `MegaDbResolver`, `BuzzHeavierResolver`, `ResolverChain`, `HostPages`, `ResolvedDownload` | Share URL → direct URL + headers + optional hashes/expiry. See `hosters.md`. |
 | `Downloads` | `Downloader`, `DownloadProgress`, `DownloadException` | Ranged resume into `<file>.part`, 416 = complete, 302/401/403/HTML body → `retryResolve`, SHA-256/MD5 verify, 30 s debug progress lines. |
 | `Install` | `ArchiveTool`, `SaveLocator`, `Installer`, `InstallOptions`, `InstallResult` | See "Install flow". |
-| `Launch` | `ExeFinder`, `ProtonLocator`, `GameLauncher`, `LaunchSpec`, `LaunchCommand`, `RunningGame`, `LaunchOptions`, `HostCapabilities` | See "Launch flow" and "Launch tweaks". |
+| `Launch` | `ExeFinder`, `ProtonLocator`, `ProtonDownloader`, `GameLauncher`, `LaunchSpec`, `LaunchCommand`, `RunningGame`, `LaunchOptions`, `HostCapabilities` | See "Launch flow" and "Launch tweaks". |
 | `Updates` | `UpdateService`, `UpdateDetector`, `Job`, `JobStage`, `ManualSolve` | Scheduler, queue, play; the only place that stitches the others together. |
 | `Data` | `Database`, `Settings`, `InstalledGame`, `InstallState` | SQLite with hand-written migrations; JSON settings. |
 | `Platform` | `ISecretStore` (+ `SecretToolStore`, `DpapiFileStore`, `FileSecretStore`), `Notifier`, `Autostart` | OS shims, Linux + Windows. |
@@ -50,7 +50,7 @@ flowchart LR
 | --- | --- | --- |
 | `LibraryRoot` | `~/Games/SteamRIP` | Games live in `<LibraryRoot>/<slug>/` |
 | `DownloadsRoot` | `~/Games/SteamRIP/.downloads` | Archives, `<slug>/<file>.rar(.part)`; independent of `LibraryRoot` |
-| `DefaultProtonPath` | `""` | Empty = umu default (latest GE-Proton, downloaded by umu); else a Proton directory |
+| `DefaultProtonPath` | `GE-Proton` | A Proton directory, or a keyword: `GE-Proton` (umu's `PROTONPATH=GE-Proton`, downloaded and updated by umu) or `DW-Proton` (downloaded and updated by `ProtonDownloader`). `""` is read as `GE-Proton`. umu's own default (UMU-Proton, a Proton 10 build) is never used |
 | `DefaultLaunch` | `LaunchOptions.AppDefaults` (gamemode on, fsync on, gamescope args `-f`, rest off) | Nested `LaunchOptions` object; the one deliberate exception to "flat settings" because the same record is stored per game |
 | `FlareSolverrUrl` | `http://localhost:8191` | Health-checked; unreachable → GoFile/MegaDB still work |
 | `CheckIntervalMinutes` | `60` | Incremental catalog check cadence |
@@ -102,7 +102,7 @@ Migrations are appended to `Database.Migrations[]`; never edit an existing entry
 ### Launch flow (`UpdateService.PlayAsync` → `GameLauncher`)
 
 1. Exe: stored `exe_rel`, else `ExeFinder.Best(gameRoot, name)` (scores name-token match +10, squashed-name match +10, `*-Shipping.exe` +8, `Binaries` +3, root depth +2, >50 MB +3; penalises launchers and tiny files; skips redist/uninstaller/crash-handler/`steam_api`/anything under `prefix` or a `drive_c`). Saved back to the DB.
-2. Proton: per-game `proton` column, else `Settings.DefaultProtonPath`, else umu default.
+2. Proton: `ProtonLocator.Effective(per-game proton column ?? Settings.DefaultProtonPath)`; empty means `GE-Proton`. The `GE-Proton` keyword is passed straight through as `PROTONPATH` (umu resolves, downloads and updates it under `~/.local/share/Steam/compatibilitytools.d/`). `DW-Proton` goes through `ProtonDownloader.EnsureDwProtonAsync`: GitHub `dawn-winery/dwproton-mirror` latest release → `<tag>-x86_64.tar.xz` + `.sha512sum` → `Downloader` into `compatibilitytools.d/.downloads` → SHA-512 check → `tar -xJf` into a staging dir → move to `compatibilitytools.d/<tag>`; the resolved directory is what `PROTONPATH` gets. One release check per 6 h; offline it uses the newest installed `dwproton-*` and fails the launch with a `LaunchException` only if there is none. `ProtonLocator.ResolveInstalled` picks the newest installed dir for a keyword (numeric version order) so `HostCapabilities` can reason about it.
 3. Options: `UpdateService.EffectiveLaunch(g)` = per-game `launch_json` over `Settings.DefaultLaunch` over `LaunchOptions.AppDefaults` (null and blank fields inherit).
 4. `GameLauncher.Compose(spec, runner, exe, prefix, findTool, screen)` is a pure function that returns the command line, the environment and warnings. Linux: `[wrapper] [gamemoderun] [gamescope <args> [-W w -H h] [--hdr-enabled] [--mangoapp] --] umu-run "<exe>" <args>` with env `WINEPREFIX=<gameRoot>/prefix`, `GAMEID=umu-<steam_app_id>` (or `umu-default`), `STORE=none`, `PROTONPATH=<proton>` when set, plus whatever the options add (next section); working directory = exe directory. Fallback without umu: `wine`. Windows: run the exe directly; only the wrapper and the free-form environment apply.
 5. Process stdout/stderr tail is logged at Trace; exit is logged (user Stop at Information, unexpected non-zero or <10 s runs at Warning with the output tail). `Exited(postId, played, code)` adds playtime; `last_played_utc` is set at launch.
@@ -138,7 +138,7 @@ Env vars a Proton build does not know are inert, so Compose does not consult the
 
 ## Testing
 
-`tests/SteamRip.Core.Tests` (xunit, 34 tests, no network): catalog/title parsing against `Fixtures/posts_page1.json`; `HostPages` against saved FileDitch (solved + interstitial), BuzzHeavier and MegaDB HTML; `Downloader` against an in-process `HttpListener` that serves ranges and injected failures; `Installer`/`SaveLocator` against temp directory trees (collapse, backups, prefix preservation, prune); `FileLoggerProvider`; `ExeFinder` and `ProtonLocator`. Live hoster and site behaviour is exercised through throwaway harnesses under `/tmp`, never in the suite.
+`tests/SteamRip.Core.Tests` (xunit, 55 tests, no network): catalog/title parsing against `Fixtures/posts_page1.json`; `HostPages` against saved FileDitch (solved + interstitial), BuzzHeavier and MegaDB HTML; `Downloader` against an in-process `HttpListener` that serves ranges and injected failures; `Installer`/`SaveLocator` against temp directory trees (collapse, backups, prefix preservation, prune); `FileLoggerProvider`; `ExeFinder` and `ProtonLocator`. Live hoster and site behaviour is exercised through throwaway harnesses under `/tmp`, never in the suite.
 
 ## Publishing
 

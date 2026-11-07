@@ -19,7 +19,7 @@ src/SteamRip.Core/                 # everything testable; no Avalonia reference
   Hosters/      one IHostResolver per hoster + ResolverChain + HostPages (pure HTML parsing)
   Downloads/    Downloader (Range resume, .part, hash verify)
   Install/      ArchiveTool (unrar/7z), SaveLocator, Installer (staging → backup → swap)
-  Launch/       ExeFinder, ProtonLocator, GameLauncher (umu-run / wine / direct)
+  Launch/       ExeFinder, ProtonLocator (+ GE-Proton/DW-Proton keywords), ProtonDownloader, GameLauncher (umu-run / wine / direct)
   Updates/      UpdateService (queue, scheduler, play), UpdateDetector, Job, ManualSolve
   Data/         Database (hand-written migrations), Settings (JSON)
   Platform/     ISecretStore, Notifier, Autostart (Linux + Windows shims)
@@ -39,7 +39,7 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ```sh
 make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
 make build        # whole solution; analyzers on, warnings are errors
-make test         # 51 tests, ~1 s, no network
+make test         # 55 tests, ~1 s, no network
 make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
 make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
 make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails

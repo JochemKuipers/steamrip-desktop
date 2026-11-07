@@ -89,10 +89,10 @@ public partial class SettingsViewModel : ObservableObject
         _ = ShowCapabilitiesAsync(s.Capabilities);
         LibraryRoot = c.LibraryRoot;
         DownloadsRoot = c.DownloadsRoot;
-        Protons.Add(new ProtonBuild("umu default (latest GE-Proton, downloaded by umu)", ""));
-        foreach (var p in ProtonLocator.Find())
+        foreach (var p in ProtonLocator.Managed.Concat(ProtonLocator.Find()))
             Protons.Add(p);
-        DefaultProton = Protons.FirstOrDefault(p => p.Path == c.DefaultProtonPath) ?? Protons[0];
+        var current = ProtonLocator.Effective(c.DefaultProtonPath);
+        DefaultProton = Protons.FirstOrDefault(p => p.Path == current) ?? Protons[0];
         FlareSolverrUrl = c.FlareSolverrUrl;
         CheckIntervalMinutes = c.CheckIntervalMinutes;
         NotifyNewGames = c.NotifyNewGames;
@@ -131,7 +131,7 @@ public partial class SettingsViewModel : ObservableObject
         var c = _s.Settings;
         c.LibraryRoot = LibraryRoot.Trim();
         c.DownloadsRoot = DownloadsRoot.Trim();
-        c.DefaultProtonPath = DefaultProton?.Path ?? "";
+        c.DefaultProtonPath = DefaultProton?.Path ?? ProtonLocator.GeProton;
         c.FlareSolverrUrl = Core.Solver.FlareSolverrClient.NormalizeUrl(FlareSolverrUrl);
         c.CheckIntervalMinutes = Math.Max(5, CheckIntervalMinutes);
         c.NotifyNewGames = NotifyNewGames;

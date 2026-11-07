@@ -27,6 +27,7 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly GameLauncher _launcher;
     private readonly ILogger _log;
     private readonly ConcurrentQueue<Job> _queue = new();
+    private readonly ProtonDownloader? _protons;
     private readonly SemaphoreSlim _wake = new(0);
     private readonly CancellationTokenSource _cts = new();
     private readonly List<Job> _jobs = [];
@@ -42,10 +43,12 @@ public sealed class UpdateService : IAsyncDisposable
         Installer installer,
         INotifier notifier,
         GameLauncher launcher,
-        ILogger<UpdateService>? logger = null
+        ILogger<UpdateService>? logger = null,
+        ProtonDownloader? protons = null
     )
     {
         _db = db;
+        _protons = protons;
         _settings = settings;
         _catalog = catalog;
         _resolvers = resolvers;
@@ -74,13 +77,13 @@ public sealed class UpdateService : IAsyncDisposable
             _db.UpsertInstall(g with { ExeRelative = exe });
             _log.LogInformation("{Name}: auto-selected executable {Exe}", g.Name, exe);
         }
-        var proton =
-            g.ProtonPath
-            ?? (
-                string.IsNullOrEmpty(_settings.DefaultProtonPath)
-                    ? null
-                    : _settings.DefaultProtonPath
-            );
+        var proton = ProtonLocator.Effective(g.ProtonPath ?? _settings.DefaultProtonPath);
+        if (proton == ProtonLocator.DwProton)
+        {
+            if (_protons is null)
+                throw new LaunchException("DW-Proton downloads are not available in this build.");
+            proton = await _protons.EnsureDwProtonAsync(_cts.Token);
+        }
         await _launcher.LaunchAsync(
             new LaunchSpec(
                 postId,

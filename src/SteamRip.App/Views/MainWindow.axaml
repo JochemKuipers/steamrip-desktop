@@ -672,7 +672,7 @@
                             <TextBlock
                                 Classes="muted"
                                 TextWrapping="Wrap"
-                                Text="Games run through umu-run with the Proton build below (per-game override in Launch options). umu downloads its runtime on the first launch, so expect a wait that one time."
+                                Text="Games run through umu-run with the Proton build below (per-game override in Launch options). GE-Proton and DW-Proton are downloaded on first use and kept current; expect a wait that one time, and the same for umu's runtime."
                             />
                             <TextBlock Text="Default Proton" Classes="muted" />
                             <ComboBox

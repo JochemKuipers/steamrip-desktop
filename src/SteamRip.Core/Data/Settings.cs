@@ -20,8 +20,8 @@ public sealed class Settings
             ".downloads"
         );
 
-    /// <summary>Proton build dir used for new games; empty = first one <see cref="Launch.ProtonLocator"/> finds (umu's default if none).</summary>
-    public string DefaultProtonPath { get; set; } = "";
+    /// <summary>Proton used for games without their own: a build directory or a keyword (<c>GE-Proton</c>, <c>DW-Proton</c>). Empty also means GE-Proton; UMU-Proton is never the default.</summary>
+    public string DefaultProtonPath { get; set; } = Launch.ProtonLocator.GeProton;
 
     /// <summary>Launch tweaks every game inherits unless it overrides them. Nested on purpose: the same record is stored per game.</summary>
     public Launch.LaunchOptions DefaultLaunch { get; set; } = Launch.LaunchOptions.AppDefaults;

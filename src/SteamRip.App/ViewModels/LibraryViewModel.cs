@@ -16,12 +16,11 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     public ObservableCollection<LibraryItem> Items { get; } = [];
     internal Services.CoverCache Covers => s.Covers;
     public IReadOnlyList<ProtonBuild> Protons { get; } =
-    [new("App default", ""), .. ProtonLocator.Find()];
+    [new("App default", ""), .. ProtonLocator.Managed, .. ProtonLocator.Find()];
     internal LaunchOptions DefaultLaunch =>
         s.Settings.DefaultLaunch.MergeOver(LaunchOptions.AppDefaults);
     internal HostCapabilities? Capabilities => s.CapabilitiesNow;
-    internal string? DefaultProtonPath =>
-        string.IsNullOrEmpty(s.Settings.DefaultProtonPath) ? null : s.Settings.DefaultProtonPath;
+    internal string DefaultProtonPath => ProtonLocator.Effective(s.Settings.DefaultProtonPath);
 
     [ObservableProperty]
     public partial int UpdatesAvailable { get; set; }

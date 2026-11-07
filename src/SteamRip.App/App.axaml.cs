@@ -307,20 +307,20 @@ public sealed class AppServices : IAsyncDisposable
             "Launcher: {Runner}; Proton builds: [{Protons}]; default {Default}",
             GameLauncher.Describe(),
             string.Join(", ", ProtonLocator.Find().Select(p => p.Name)),
-            string.IsNullOrEmpty(settings.DefaultProtonPath)
-                ? "umu default"
-                : settings.DefaultProtonPath
+            ProtonLocator.Effective(settings.DefaultProtonPath)
         );
+        var downloader = new Downloader(http, loggers.CreateLogger<Downloader>());
         var updates = new UpdateService(
             db,
             settings,
             new CatalogClient(catalogHttp, logger: loggers.CreateLogger<CatalogClient>()),
             resolvers,
-            new Downloader(http, loggers.CreateLogger<Downloader>()),
+            downloader,
             new Installer(archive, loggers.CreateLogger<Installer>()),
             notifier,
             launcher,
-            loggers.CreateLogger<UpdateService>()
+            loggers.CreateLogger<UpdateService>(),
+            new ProtonDownloader(http, downloader, loggers.CreateLogger<ProtonDownloader>())
         );
         var secrets = SecretStore.Create(Settings.DefaultDir);
         log.LogInformation(
