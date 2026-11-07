@@ -31,6 +31,12 @@ public sealed class Settings
     public bool NotifyNewGames { get; set; }
     public bool StartHidden { get; set; } = true;
     public bool Autostart { get; set; }
+
+    /// <summary>Create an app-menu entry for every game after install (removed again on uninstall).</summary>
+    public bool ShortcutMenu { get; set; } = true;
+
+    /// <summary>Also put a launcher on the desktop after install.</summary>
+    public bool ShortcutDesktop { get; set; }
     public bool DeleteArchiveAfterInstall { get; set; } = true;
     public int KeepBackups { get; set; } = 2;
     public bool VerboseLogging { get; set; }

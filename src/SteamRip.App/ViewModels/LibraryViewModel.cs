@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using SteamRip.Core.Catalog;
 using SteamRip.Core.Data;
 using SteamRip.Core.Launch;
+using SteamRip.Core.Platform;
 using SteamRip.Core.Updates;
 
 namespace SteamRip.App.ViewModels;
@@ -101,6 +102,19 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         s.Db.UpsertInstall(item.Game with { AutoUpdate = !item.Game.AutoUpdate });
         Refresh();
     }
+
+    public void ToggleShortcut(LibraryItem item, ShortcutPlace place)
+    {
+        s.Updates.SetShortcut(
+            item.Game.PostId,
+            place,
+            !s.Updates.HasShortcut(item.Game.PostId, place)
+        );
+        item.RefreshShortcuts();
+    }
+
+    public bool HasShortcut(LibraryItem item, ShortcutPlace place) =>
+        s.Updates.HasShortcut(item.Game.PostId, place);
 
     public void Uninstall(LibraryItem item, bool deleteFiles)
     {
@@ -307,6 +321,19 @@ public sealed partial class LibraryItem : ObservableObject
     public bool IsIdle => !IsBusy;
     public bool NeedsAttention => Game.State is InstallState.Failed or InstallState.NeedsAttention;
     public string AutoLabel => Game.AutoUpdate ? "Auto-update on" : "Auto-update off";
+    public string DesktopShortcutLabel =>
+        _owner.HasShortcut(this, ShortcutPlace.Desktop)
+            ? "Remove desktop shortcut"
+            : "Add desktop shortcut";
+    public string MenuShortcutLabel =>
+        _owner.HasShortcut(this, ShortcutPlace.Menu) ? "Remove from app menu" : "Add to app menu";
+
+    internal void RefreshShortcuts()
+    {
+        OnPropertyChanged(nameof(DesktopShortcutLabel));
+        OnPropertyChanged(nameof(MenuShortcutLabel));
+    }
+
     public string Playtime =>
         Game.PlaytimeSeconds switch
         {
@@ -382,6 +409,12 @@ public sealed partial class LibraryItem : ObservableObject
 
     [RelayCommand]
     private void ToggleAuto() => _owner.ToggleAuto(this);
+
+    [RelayCommand]
+    private void ToggleDesktopShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Desktop);
+
+    [RelayCommand]
+    private void ToggleMenuShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Menu);
 
     [RelayCommand]
     private void OpenFolder() => _owner.OpenFolder(this);

@@ -349,8 +349,59 @@ public sealed class UpdateService : IAsyncDisposable
         if (deleteFiles && Directory.Exists(g.InstallPath))
             Directory.Delete(g.InstallPath, true);
         _db.RemoveInstall(postId);
+        TryShortcuts(() => Shortcuts.RemoveAll(postId, g.Name), g.Name, "remove shortcuts");
         _db.LogEvent("uninstall", g.Name, postId);
         JobsChanged?.Invoke();
+    }
+
+    // ---- shortcuts ----
+
+    public bool HasShortcut(long postId, ShortcutPlace place) =>
+        _db.GetInstall(postId) is { } g && Shortcuts.Exists(postId, g.Name, place);
+
+    /// <summary>Creates or removes one game's shortcut; failures are logged, never thrown.</summary>
+    public void SetShortcut(long postId, ShortcutPlace place, bool present)
+    {
+        if (_db.GetInstall(postId) is not { } g)
+            return;
+        var post = _db.GetPost(postId);
+        TryShortcuts(
+            () =>
+            {
+                if (present)
+                    Shortcuts.Create(postId, g.Name, Shortcuts.CoverIcon(post?.SteamAppId), place);
+                else
+                    Shortcuts.Remove(postId, g.Name, place);
+                _log.LogInformation(
+                    "{Name}: {Action} {Place} shortcut {Path}",
+                    g.Name,
+                    present ? "created" : "removed",
+                    place,
+                    Shortcuts.PathFor(postId, g.Name, place)
+                );
+            },
+            g.Name,
+            (present ? "create " : "remove ") + place + " shortcut"
+        );
+    }
+
+    /// <summary>Settings toggle: apply to every installed game at once.</summary>
+    public void SetShortcutsForAll(ShortcutPlace place, bool present)
+    {
+        foreach (var g in _db.GetInstalls().Where(g => g.State == InstallState.Installed))
+            SetShortcut(g.PostId, place, present);
+    }
+
+    private void TryShortcuts(Action action, string name, string what)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning("{Name}: could not {What}: {Error}", name, what, e.Message);
+        }
     }
 
     private async Task WorkerLoopAsync()
@@ -465,6 +516,10 @@ public sealed class UpdateService : IAsyncDisposable
                     previous?.PlaytimeSeconds ?? 0
                 )
             );
+            if (_settings.ShortcutMenu)
+                SetShortcut(post.Id, ShortcutPlace.Menu, true);
+            if (_settings.ShortcutDesktop)
+                SetShortcut(post.Id, ShortcutPlace.Desktop, true);
             var what = job.IsUpdate
                 ? $"Updated to {post.VersionKey}"
                 : $"Installed {post.VersionKey}";

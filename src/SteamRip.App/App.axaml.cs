@@ -29,7 +29,8 @@ public partial class App : Application
 {
     public AppServices Services { get; private set; } = null!;
     private MainWindow? _window;
-    private FileSystemWatcher? _showWatcher;
+    private FileSystemWatcher? _showWatcher,
+        _playWatcher;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -42,11 +43,15 @@ public partial class App : Application
             HookCrashLogging(Services.Log);
             Services.Updates.Start();
 
+            var play = Program.PlayArg(desktop.Args ?? []);
             var hidden =
                 desktop.Args?.Contains("--hidden") == true
+                || play is not null
                 || (Services.Settings.StartHidden && desktop.Args?.Contains("--show") != true);
-            if (!hidden)
+            if (!hidden || desktop.Args?.Contains("--show") == true)
                 ShowWindow();
+            if (play is { } id)
+                _ = PlayRequestedAsync(id);
 
             var pause = TrayIcon
                 .GetIcons(this)
@@ -114,9 +119,47 @@ public partial class App : Application
             };
             _showWatcher.Created += (_, _) => Dispatcher.UIThread.Post(OnShowRequested);
             _showWatcher.Changed += (_, _) => Dispatcher.UIThread.Post(OnShowRequested);
+            _playWatcher = new FileSystemWatcher(Settings.DefaultDir, ".play")
+            {
+                EnableRaisingEvents = true,
+            };
+            _playWatcher.Created += (_, _) => Dispatcher.UIThread.Post(OnPlayRequested);
+            _playWatcher.Changed += (_, _) => Dispatcher.UIThread.Post(OnPlayRequested);
         }
         catch
         { /* not fatal */
+        }
+    }
+
+    private void OnPlayRequested()
+    {
+        long id;
+        try
+        {
+            var text = File.ReadAllText(Program.PlayRequestPath).Trim();
+            File.Delete(Program.PlayRequestPath);
+            if (!long.TryParse(text, out id))
+                return;
+        }
+        catch (IOException)
+        {
+            return; // the Created and Changed events both fire; the second one finds the file gone
+        }
+        _ = PlayRequestedAsync(id);
+    }
+
+    /// <summary>A game shortcut was clicked: play through the normal path, and tell the user when that is impossible.</summary>
+    private async Task PlayRequestedAsync(long postId)
+    {
+        Services.Log.LogInformation("Play requested from a shortcut for post {PostId}", postId);
+        try
+        {
+            await Services.Updates.PlayAsync(postId);
+        }
+        catch (Exception e)
+        {
+            Services.Log.LogWarning("Shortcut play {PostId} failed: {Error}", postId, e.Message);
+            await Services.Notifier.NotifyAsync("Could not start the game", e.Message);
         }
     }
 

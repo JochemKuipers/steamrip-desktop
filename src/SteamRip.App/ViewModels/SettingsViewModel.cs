@@ -47,6 +47,12 @@ public partial class SettingsViewModel : ObservableObject
     public partial bool Autostart { get; set; }
 
     [ObservableProperty]
+    public partial bool ShortcutMenu { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShortcutDesktop { get; set; }
+
+    [ObservableProperty]
     public partial bool DeleteArchiveAfterInstall { get; set; }
 
     [ObservableProperty]
@@ -98,6 +104,8 @@ public partial class SettingsViewModel : ObservableObject
         NotifyNewGames = c.NotifyNewGames;
         StartHidden = c.StartHidden;
         Autostart = Core.Platform.Autostart.IsEnabled();
+        ShortcutMenu = c.ShortcutMenu;
+        ShortcutDesktop = c.ShortcutDesktop;
         DeleteArchiveAfterInstall = c.DeleteArchiveAfterInstall;
         KeepBackups = c.KeepBackups;
         HosterOrder = string.Join(", ", c.HosterOrder);
@@ -118,6 +126,19 @@ public partial class SettingsViewModel : ObservableObject
         if (!_ready || e.PropertyName is nameof(SolverTest) or nameof(CapabilityText))
             return;
         QueueSave();
+    }
+
+    /// <summary>Toggling applies to every installed game right away, not just future installs.</summary>
+    partial void OnShortcutMenuChanged(bool value)
+    {
+        if (_ready)
+            _s.Updates.SetShortcutsForAll(Core.Platform.ShortcutPlace.Menu, value);
+    }
+
+    partial void OnShortcutDesktopChanged(bool value)
+    {
+        if (_ready)
+            _s.Updates.SetShortcutsForAll(Core.Platform.ShortcutPlace.Desktop, value);
     }
 
     private void QueueSave()
@@ -146,6 +167,8 @@ public partial class SettingsViewModel : ObservableObject
             ),
         ];
         c.Autostart = Autostart;
+        c.ShortcutMenu = ShortcutMenu;
+        c.ShortcutDesktop = ShortcutDesktop;
         c.VerboseLogging = VerboseLogging;
         c.DefaultLaunch = Launch.ToOptions().MergeOver(LaunchOptions.AppDefaults);
         _s.LogFile.MinimumLevel = VerboseLogging ? LogLevel.Debug : LogLevel.Information;

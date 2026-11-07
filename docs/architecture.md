@@ -31,12 +31,12 @@ flowchart LR
 | `Launch` | `ExeFinder`, `ProtonLocator`, `ProtonDownloader`, `GameLauncher`, `LaunchSpec`, `LaunchCommand`, `RunningGame`, `LaunchOptions`, `HostCapabilities` | See "Launch flow" and "Launch tweaks". |
 | `Updates` | `UpdateService`, `UpdateDetector`, `Job`, `JobStage`, `ManualSolve` | Scheduler, queue, play; the only place that stitches the others together. |
 | `Data` | `Database`, `Settings`, `InstalledGame`, `InstallState` | SQLite with hand-written migrations; JSON settings. |
-| `Platform` | `ISecretStore` (+ `SecretToolStore`, `DpapiFileStore`, `FileSecretStore`), `Notifier`, `Autostart` | OS shims, Linux + Windows. |
+| `Platform` | `ISecretStore` (+ `SecretToolStore`, `DpapiFileStore`, `FileSecretStore`), `Notifier`, `Autostart`, `Shortcuts` | OS shims, Linux + Windows. |
 | `Logging` | `FileLoggerProvider` | Daily file, 7-day prune, background writer, `LineWritten` for the UI tail, runtime `MinimumLevel`. |
 
 ## App (`src/SteamRip.App`)
 
-- `Program.cs` — single-instance mutex `steamrip-desktop-single-instance`; a second launch writes `<config>/.show`, which the running instance watches and reacts to by showing the window.
+- `Program.cs` — single-instance mutex `steamrip-desktop-single-instance`; a second launch writes `<config>/.show` (or `<config>/.play` holding a post id when started with `--play <id>`), which the running instance watches and reacts to by showing the window.
 - `App.axaml(.cs)` — palette resources, `TrayIcon` + `NativeMenu` (Open library / Check for updates now / Pause auto-updates / Quit), `ShutdownMode.OnExplicitShutdown`, hide-on-close, `--hidden`/`--show`, crash logging hooks. `AppServices.Build(args)` constructs the whole object graph by hand (no DI container) and logs tool discovery (unrar/7z/umu/wine/Proton builds) at startup.
 - `Services/CoverCache.cs` — covers from `cdn.cloudflare.steamstatic.com/steam/apps/<appid>/library_600x900.jpg` (fallback `header.jpg`), no API key. Fetched on first read of an item's `Cover` property (i.e. when the card renders), 4 downloads in flight, disk cache `<config>/covers/<appid>.jpg`, decoded once at 140 px width and shared in memory, 404s recorded as `<appid>.missing` for 7 days. Posts without a Steam app id (~1.5 %) show the name's initial.
 - ViewModels (CommunityToolkit.Mvvm): `MainViewModel` (nav, sync line, solver health every 30 s, counts, 15 s poll while games run), `LibraryViewModel`/`LibraryItem` (Play/Stop, Update, Forget/Delete; "Launch options" raises `OptionsRequested`, which `MainViewModel.Editing` shows in a side sheet over the window with exe/Proton/args/tweaks), `BrowseViewModel`, `QueueViewModel` (cancel, solve in browser), `ActivityViewModel` (events + live log tail), `SettingsViewModel` (incl. launch defaults and the capability check), `LaunchOptionsEditor` (one `LaunchOptions` form used twice: in Settings it edits the defaults; on a game it shows the effective values, labels say the inherited default, and a toggle is only stored when it differs from that default so the game keeps following Settings otherwise; raises `Changed` after every edit).
@@ -58,6 +58,8 @@ flowchart LR
 | `NotifyNewGames` | `false` | "New game posted" notifications (noisy) |
 | `StartHidden` | `true` | Tray-only start unless `--show` |
 | `Autostart` | `false` | XDG `.desktop` with `--hidden` / HKCU Run |
+| `ShortcutMenu` | `true` | After each install, write an app-menu launcher for the game (`Shortcuts`, see below); removed on uninstall. Toggling applies to all installed games |
+| `ShortcutDesktop` | `false` | Same, on the desktop |
 | `DeleteArchiveAfterInstall` | `true` | |
 | `KeepBackups` | `2` | Save backups kept per game |
 | `VerboseLogging` | `false` | Debug level; `--verbose` flag does the same for one run |
@@ -98,6 +100,12 @@ Migrations are appended to `Database.Migrations[]`; never edit an existing entry
 6. Prune backups to `KeepBackups`. Optionally delete the archive.
 
 `UpdateService.RunJobAsync` wraps this: if the game is running it waits for exit first; after install it keeps `exe_rel` if that file still exists, else re-runs `ExeFinder.Best`; Proton, args and playtime carry over.
+
+### Game shortcuts (`Platform/Shortcuts`)
+
+A shortcut is the app itself with `--play <postId>`, so it goes through `UpdateService.PlayAsync` like the Play button (same Proton, launch options, playtime). `Program.Main` handles it in both cases: first instance → `App` starts hidden (unless `--show`) and calls `PlayAsync`; already running → the new process writes `<config>/.play` and exits, the watcher in `App` picks it up. Failures ("already running", "not installed") become a desktop notification and a log line.
+
+Linux writes `steamrip-game-<postId>.desktop` to `$XDG_DATA_HOME/applications` (menu) or the XDG desktop dir (`xdg-user-dir DESKTOP`, fallback `~/Desktop`), executable so KDE/GNOME trust it, `Icon=` the cached Steam cover `.jpg` when present else the app icon. Windows writes a `.lnk` via `WScript.Shell` in PowerShell to `Start Menu\Programs\SteamRIP\<name>.lnk` or the desktop, with the app's icon. Creation after install honours `ShortcutMenu`/`ShortcutDesktop`; the per-game ⋯ menu adds or removes either one at any time; uninstall removes both.
 
 ### Launch flow (`UpdateService.PlayAsync` → `GameLauncher`)
 
@@ -140,7 +148,7 @@ Wine's Wayland driver treats an output as HDR only when the compositor's maximum
 
 ## Testing
 
-`tests/SteamRip.Core.Tests` (xunit, 55 tests, no network): catalog/title parsing against `Fixtures/posts_page1.json`; `HostPages` against saved FileDitch (solved + interstitial), BuzzHeavier and MegaDB HTML; `Downloader` against an in-process `HttpListener` that serves ranges and injected failures; `Installer`/`SaveLocator` against temp directory trees (collapse, backups, prefix preservation, prune); `FileLoggerProvider`; `ExeFinder` and `ProtonLocator`. Live hoster and site behaviour is exercised through throwaway harnesses under `/tmp`, never in the suite.
+`tests/SteamRip.Core.Tests` (xunit, 58 tests, no network): catalog/title parsing against `Fixtures/posts_page1.json`; `HostPages` against saved FileDitch (solved + interstitial), BuzzHeavier and MegaDB HTML; `Downloader` against an in-process `HttpListener` that serves ranges and injected failures; `Installer`/`SaveLocator` against temp directory trees (collapse, backups, prefix preservation, prune); `FileLoggerProvider`; `ExeFinder` and `ProtonLocator`. Live hoster and site behaviour is exercised through throwaway harnesses under `/tmp`, never in the suite.
 
 ## Publishing
 

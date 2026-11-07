@@ -286,6 +286,15 @@
                                                         />
                                                         <Separator />
                                                         <MenuItem
+                                                            Header="{Binding MenuShortcutLabel}"
+                                                            Command="{Binding ToggleMenuShortcutCommand}"
+                                                        />
+                                                        <MenuItem
+                                                            Header="{Binding DesktopShortcutLabel}"
+                                                            Command="{Binding ToggleDesktopShortcutCommand}"
+                                                        />
+                                                        <Separator />
+                                                        <MenuItem
                                                             Header="Forget (keep files)"
                                                             Command="{Binding ForgetCommand}"
                                                         />
@@ -785,6 +794,16 @@
                                 IsChecked="{Binding StartHidden}"
                                 OnContent="Start hidden in the tray"
                                 OffContent="Show the window on start"
+                            />
+                            <ToggleSwitch
+                                IsChecked="{Binding ShortcutMenu}"
+                                OnContent="Add installed games to the app menu"
+                                OffContent="No app menu entries for games"
+                            />
+                            <ToggleSwitch
+                                IsChecked="{Binding ShortcutDesktop}"
+                                OnContent="Put a shortcut for each game on the desktop"
+                                OffContent="No desktop shortcuts for games"
                             />
                             <ToggleSwitch
                                 IsChecked="{Binding NotifyNewGames}"
