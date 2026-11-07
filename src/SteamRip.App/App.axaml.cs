@@ -198,6 +198,30 @@ public sealed class AppServices : IAsyncDisposable
     public required ILogger Log { get; init; }
     public required Services.CoverCache Covers { get; init; }
 
+    /// <summary>Background probe of what the machine supports (HDR, gamescope, Proton env vars). Replaced by "Re-check" in Settings.</summary>
+    public Task<HostCapabilities> Capabilities { get; private set; } =
+        Task.FromResult(HostCapabilities.None);
+
+    /// <summary>The probe result when it has finished, else null (UI shows "checking…" and never blocks on it).</summary>
+    public HostCapabilities? CapabilitiesNow =>
+        Capabilities.IsCompletedSuccessfully ? Capabilities.Result : null;
+
+    public Task<HostCapabilities> ProbeCapabilities()
+    {
+        Capabilities = Task.Run(() =>
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var caps = HostCapabilities.Probe();
+            Log.LogInformation(
+                "Capabilities ({Ms} ms):\n  {Lines}",
+                sw.ElapsedMilliseconds,
+                string.Join("\n  ", caps.Lines())
+            );
+            return caps;
+        });
+        return Capabilities;
+    }
+
     public static AppServices Build(string[] args)
     {
         var settings = Settings.Load();
@@ -305,7 +329,7 @@ public sealed class AppServices : IAsyncDisposable
             db.PostCount(),
             db.GetInstalls().Count
         );
-        return new AppServices
+        var services = new AppServices
         {
             Settings = settings,
             Db = db,
@@ -326,6 +350,8 @@ public sealed class AppServices : IAsyncDisposable
                 loggers.CreateLogger<Services.CoverCache>()
             ),
         };
+        _ = services.ProbeCapabilities();
+        return services;
     }
 
     public async ValueTask DisposeAsync()

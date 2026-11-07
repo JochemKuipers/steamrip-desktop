@@ -21,6 +21,14 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<ProtonBuild> Protons { get; } = [];
     public string LauncherLine => "Runner: " + GameLauncher.Describe();
 
+    /// <summary>The app-wide launch defaults; saved with everything else.</summary>
+    public LaunchOptionsEditor Launch { get; }
+
+    [ObservableProperty]
+    public partial string CapabilityText { get; set; } = "Checking what this machine supports…";
+
+    partial void OnDefaultProtonChanged(ProtonBuild? value) => Launch.Refresh();
+
     [ObservableProperty]
     public partial string FlareSolverrUrl { get; set; }
 
@@ -64,6 +72,13 @@ public partial class SettingsViewModel : ObservableObject
     {
         _s = s;
         var c = s.Settings;
+        Launch = new LaunchOptionsEditor(
+            () => null,
+            () => s.CapabilitiesNow,
+            () => DefaultProton?.Path
+        );
+        Launch.Load(c.DefaultLaunch.MergeOver(LaunchOptions.AppDefaults));
+        _ = ShowCapabilitiesAsync(s.Capabilities);
         LibraryRoot = c.LibraryRoot;
         DownloadsRoot = c.DownloadsRoot;
         Protons.Add(new ProtonBuild("umu default (latest GE-Proton, downloaded by umu)", ""));
@@ -103,14 +118,16 @@ public partial class SettingsViewModel : ObservableObject
         ];
         c.Autostart = Autostart;
         c.VerboseLogging = VerboseLogging;
+        c.DefaultLaunch = Launch.ToOptions().MergeOver(LaunchOptions.AppDefaults);
         _s.LogFile.MinimumLevel = VerboseLogging ? LogLevel.Debug : LogLevel.Information;
         _s.Log.LogInformation(
-            "Settings saved: library {Library}, solver {Solver}, order [{Order}], interval {Interval} min, verbose {Verbose}",
+            "Settings saved: library {Library}, solver {Solver}, order [{Order}], interval {Interval} min, verbose {Verbose}, launch defaults {Launch}",
             c.LibraryRoot,
             c.FlareSolverrUrl,
             string.Join(", ", c.HosterOrder),
             c.CheckIntervalMinutes,
-            c.VerboseLogging
+            c.VerboseLogging,
+            c.DefaultLaunch
         );
         try
         {
@@ -154,6 +171,20 @@ public partial class SettingsViewModel : ObservableObject
         else
             SolverTest =
                 $"No answer from {url} within 5 s. Is it running, is the port right, and does the firewall allow it?";
+    }
+
+    [RelayCommand]
+    private Task Recheck()
+    {
+        CapabilityText = "Checking…";
+        return ShowCapabilitiesAsync(_s.ProbeCapabilities());
+    }
+
+    private async Task ShowCapabilitiesAsync(Task<HostCapabilities> probe)
+    {
+        var caps = await probe;
+        CapabilityText = string.Join('\n', caps.Lines());
+        Launch.Refresh();
     }
 
     [RelayCommand]

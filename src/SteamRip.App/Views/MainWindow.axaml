@@ -12,6 +12,120 @@
     Icon="avares://steamrip-desktop/Assets/app.png"
 >
     <Window.DataTemplates>
+        <!-- ============ LAUNCH TWEAKS (shared by Settings defaults and the per-game flyout) ============ -->
+        <DataTemplate DataType="vm:LaunchOptionsEditor">
+            <StackPanel Spacing="8">
+                <TextBlock
+                    Classes="muted"
+                    TextWrapping="Wrap"
+                    Text="Only the environment and wrapper apply on Windows; the rest is for Proton on Linux."
+                    IsVisible="{Binding !IsLinux}"
+                />
+                <UniformGrid Columns="2" IsEnabled="{Binding IsLinux}">
+                    <CheckBox
+                        Content="{Binding MangoHudLabel}"
+                        IsChecked="{Binding MangoHud}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding GameModeLabel}"
+                        IsChecked="{Binding GameMode}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding GamescopeLabel}"
+                        IsChecked="{Binding Gamescope}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding HdrLabel}"
+                        IsChecked="{Binding Hdr}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding WaylandLabel}"
+                        IsChecked="{Binding Wayland}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding FsrLabel}"
+                        IsChecked="{Binding Fsr}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding FsyncLabel}"
+                        IsChecked="{Binding Fsync}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                    <CheckBox
+                        Content="{Binding ProtonLogLabel}"
+                        IsChecked="{Binding ProtonLog}"
+                        IsThreeState="{Binding IsPerGame}"
+                    />
+                </UniformGrid>
+                <TextBlock
+                    Classes="amber"
+                    TextWrapping="Wrap"
+                    Text="{Binding HdrWarning}"
+                    IsVisible="{Binding HasHdrWarning}"
+                />
+                <Grid ColumnDefinitions="*,12,*" IsEnabled="{Binding IsLinux}">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Classes="eyebrow" Text="GAMESCOPE ARGUMENTS" />
+                        <TextBox
+                            Text="{Binding GamescopeArgs}"
+                            PlaceholderText="{Binding GamescopeArgsPlaceholder}"
+                            FontFamily="{StaticResource Mono}"
+                            FontSize="12"
+                        />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="4">
+                        <TextBlock Classes="eyebrow" Text="MANGOHUD CONFIG" />
+                        <TextBox
+                            Text="{Binding MangoHudConfig}"
+                            PlaceholderText="{Binding MangoHudConfigPlaceholder}"
+                            FontFamily="{StaticResource Mono}"
+                            FontSize="12"
+                        />
+                    </StackPanel>
+                </Grid>
+                <TextBlock Classes="eyebrow" Text="DLL OVERRIDES" IsVisible="{Binding IsLinux}" />
+                <TextBox
+                    Text="{Binding DllOverrides}"
+                    PlaceholderText="{Binding DllOverridesPlaceholder}"
+                    FontFamily="{StaticResource Mono}"
+                    FontSize="12"
+                    IsVisible="{Binding IsLinux}"
+                />
+                <TextBlock
+                    Classes="eyebrow"
+                    Text="ENVIRONMENT (KEY=VALUE PER LINE, APPLIED LAST)"
+                />
+                <TextBox
+                    Text="{Binding Environment}"
+                    PlaceholderText="{Binding EnvironmentPlaceholder}"
+                    AcceptsReturn="True"
+                    MinHeight="64"
+                    FontFamily="{StaticResource Mono}"
+                    FontSize="12"
+                />
+                <TextBlock Classes="eyebrow" Text="WRAPPER COMMAND" />
+                <TextBox
+                    Text="{Binding Wrapper}"
+                    PlaceholderText="{Binding WrapperPlaceholder}"
+                    FontFamily="{StaticResource Mono}"
+                    FontSize="12"
+                />
+                <Button
+                    Classes="quiet"
+                    Content="Reset to defaults"
+                    Command="{Binding ResetCommand}"
+                    HorizontalAlignment="Left"
+                    IsVisible="{Binding IsPerGame}"
+                />
+            </StackPanel>
+        </DataTemplate>
+
         <!-- ============ LIBRARY ============ -->
         <DataTemplate DataType="vm:LibraryViewModel">
             <DockPanel Margin="28,24,28,20">
@@ -193,7 +307,7 @@
                                             <Button Classes="quiet" Content="Launch options">
                                                 <Button.Flyout>
                                                     <Flyout Placement="BottomEdgeAlignedRight">
-                                                        <StackPanel Spacing="8" Width="420">
+                                                        <StackPanel Spacing="8" Width="540">
                                                             <TextBlock
                                                                 Classes="eyebrow"
                                                                 Text="EXECUTABLE"
@@ -226,6 +340,12 @@
                                                                 FontFamily="{StaticResource Mono}"
                                                                 FontSize="12"
                                                             />
+                                                            <TextBlock
+                                                                Classes="eyebrow"
+                                                                Text="TWEAKS · unset boxes inherit the Settings defaults"
+                                                                Margin="0,10,0,0"
+                                                            />
+                                                            <ContentControl Content="{Binding Launch}" />
                                                             <StackPanel
                                                                 Orientation="Horizontal"
                                                                 Spacing="6"
@@ -659,6 +779,35 @@
                                 Text="{Binding LauncherLine}"
                                 TextWrapping="Wrap"
                             />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Classes="card">
+                        <StackPanel Spacing="10">
+                            <TextBlock FontWeight="SemiBold" Text="Launch defaults" />
+                            <TextBlock
+                                Classes="muted"
+                                TextWrapping="Wrap"
+                                Text="Applied to every game unless its Launch options say otherwise. Missing tools are skipped with a note in the log, never a failed launch. HDR needs a Wayland session and either gamescope or Wine's Wayland driver; the check below tells you which you have."
+                            />
+                            <ContentControl Content="{Binding Launch}" />
+                            <DockPanel Margin="0,6,0,0">
+                                <Button
+                                    DockPanel.Dock="Right"
+                                    Classes="quiet"
+                                    Content="Re-check"
+                                    Command="{Binding RecheckCommand}"
+                                    VerticalAlignment="Top"
+                                />
+                                <StackPanel Spacing="4">
+                                    <TextBlock Classes="eyebrow" Text="CAPABILITY CHECK" />
+                                    <TextBlock
+                                        Classes="mono muted"
+                                        Text="{Binding CapabilityText}"
+                                        TextWrapping="Wrap"
+                                    />
+                                </StackPanel>
+                            </DockPanel>
                         </StackPanel>
                     </Border>
 

@@ -17,6 +17,11 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     internal Services.CoverCache Covers => s.Covers;
     public IReadOnlyList<ProtonBuild> Protons { get; } =
     [new("App default", ""), .. ProtonLocator.Find()];
+    internal LaunchOptions DefaultLaunch =>
+        s.Settings.DefaultLaunch.MergeOver(LaunchOptions.AppDefaults);
+    internal HostCapabilities? Capabilities => s.CapabilitiesNow;
+    internal string? DefaultProtonPath =>
+        string.IsNullOrEmpty(s.Settings.DefaultProtonPath) ? null : s.Settings.DefaultProtonPath;
 
     [ObservableProperty]
     public partial int UpdatesAvailable { get; set; }
@@ -146,6 +151,20 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         Refresh();
     }
 
+    public void SetLaunch(LibraryItem item, LaunchOptions o)
+    {
+        var stored = o.IsEmpty ? null : o;
+        if (stored == item.Game.Launch)
+            return;
+        s.Db.UpsertInstall(item.Game with { Launch = stored });
+        s.Log.LogInformation(
+            "{Name}: launch tweaks set to {Launch}",
+            item.Name,
+            stored?.ToString() ?? "inherit"
+        );
+        Refresh();
+    }
+
     public static void OpenPath(string target)
     {
         try
@@ -181,8 +200,18 @@ public sealed partial class LibraryItem : ObservableObject
         HasUpdate = hasUpdate;
         IsRunning = running;
         LaunchArgs = game.LaunchArgs ?? "";
+        Launch = new LaunchOptionsEditor(
+            () => _owner.DefaultLaunch,
+            () => _owner.Capabilities,
+            () => Game.ProtonPath ?? _owner.DefaultProtonPath
+        );
+        Launch.Load(game.Launch);
+        Launch.Changed += o => _owner.SetLaunch(this, o);
         RefreshExes();
     }
+
+    /// <summary>Per-game tweaks; null fields inherit the Settings defaults.</summary>
+    public LaunchOptionsEditor Launch { get; }
 
     public void Update(
         InstalledGame game,
@@ -205,6 +234,13 @@ public sealed partial class LibraryItem : ObservableObject
             RefreshExes();
         if (LaunchArgs != (game.LaunchArgs ?? ""))
             LaunchArgs = game.LaunchArgs ?? "";
+        if (
+            game.Launch != Launch.ToOptions()
+            && !(game.Launch is null && Launch.ToOptions().IsEmpty)
+        )
+            Launch.Load(game.Launch);
+        else
+            Launch.Refresh();
         OnPropertyChanged(string.Empty);
     }
 
