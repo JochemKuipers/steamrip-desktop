@@ -15,7 +15,7 @@ DEV_DB       := $(DEV_HOME)/steamrip-desktop/steamrip.db
 .DEFAULT_GOAL := help
 .PHONY: help setup tools hooks restore build rebuild test run run-dev run-hidden watch \
         format format-check lint inspect inspect-all inspect-html check ci \
-        publish publish-linux publish-win package package-win release \
+        publish publish-linux publish-win package package-win release aur \
         clean distclean logs log-tail db dev-reset
 
 ## ---- setup ---------------------------------------------------------------------------------
@@ -123,6 +123,10 @@ release: ## Tag and push today's release (clean tree + full gate first; GitHub A
 	git tag -a "v$$v" -m "v$$v" && \
 	git push origin HEAD "v$$v" && \
 	echo "Pushed v$$v; the Release workflow will attach the packages: https://github.com/JochemKuipers/steamrip-desktop/releases/tag/v$$v"
+
+aur: ## Publish an existing release to the AUR from this machine (your ssh agent key): make aur VERSION=2026.11.7
+	@test -n "$(VERSION)" || { echo "usage: make aur VERSION=2026.11.7"; exit 2; }
+	scripts/aur-publish.sh "$(VERSION)"
 
 ## ---- housekeeping --------------------------------------------------------------------------
 

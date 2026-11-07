@@ -67,7 +67,7 @@ make release VERSION=2026.11.6-rc1   # explicit version; a -suffix marks a pre-r
 ```
 
 Versions are dates, `YYYY.M.D` without zero padding.
-The [Release workflow](.github/workflows/release.yml) builds the Linux packages on Ubuntu and the installer (Inno Setup) on Windows, publishes a GitHub Release with generated notes and `SHA256SUMS.txt`, then updates the AUR package from the released `.deb`. A `-rc1` suffix marks a pre-release (deb/rpm render it as `~rc1` so it sorts below the final) and skips the AUR step. CI runs the same gates plus both packaging jobs on every push and PR, so the Windows build is proven on a Windows runner.
+The [Release workflow](.github/workflows/release.yml) builds the Linux packages on Ubuntu and the installer (Inno Setup) on Windows, publishes a GitHub Release with generated notes and `SHA256SUMS.txt`, then updates the AUR package from the released `.deb` (`scripts/aur-publish.sh`, also `make aur VERSION=…` from a machine with your AUR key). A `-rc1` suffix marks a pre-release (deb/rpm render it as `~rc1` so it sorts below the final) and skips the AUR step. CI runs the same gates plus both packaging jobs on every push and PR, so the Windows build is proven on a Windows runner.
 
 ## Where things live
 
