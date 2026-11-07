@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -56,8 +58,14 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string HosterOrder { get; set; }
 
-    [ObservableProperty]
-    public partial string SaveStatus { get; set; } = "";
+    /// <summary>Fires after an auto-save with the text for the toast.</summary>
+    public event Action<string>? Saved;
+
+    private readonly DispatcherTimer _debounce = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(700),
+    };
+    private readonly bool _ready; // false while the constructor is still copying values in
 
     [ObservableProperty]
     public partial string SolverTest { get; set; } = "";
@@ -94,9 +102,30 @@ public partial class SettingsViewModel : ObservableObject
         KeepBackups = c.KeepBackups;
         HosterOrder = string.Join(", ", c.HosterOrder);
         VerboseLogging = c.VerboseLogging;
+        _ready = true;
+        Launch.Changed += _ => QueueSave();
+        _debounce.Tick += (_, _) =>
+        {
+            _debounce.Stop();
+            Save();
+        };
     }
 
-    [RelayCommand]
+    /// <summary>Every edit schedules a save; typing in a field just keeps pushing it back.</summary>
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (!_ready || e.PropertyName is nameof(SolverTest) or nameof(CapabilityText))
+            return;
+        QueueSave();
+    }
+
+    private void QueueSave()
+    {
+        _debounce.Stop();
+        _debounce.Start();
+    }
+
     private void Save()
     {
         var c = _s.Settings;
@@ -131,17 +160,17 @@ public partial class SettingsViewModel : ObservableObject
         );
         try
         {
-            Core.Platform.Autostart.Set(Autostart);
+            if (Autostart != Core.Platform.Autostart.IsEnabled())
+                Core.Platform.Autostart.Set(Autostart);
         }
         catch (Exception e)
         {
-            SaveStatus = "Saved, but autostart failed: " + e.Message;
             c.Save();
+            Saved?.Invoke("Settings saved, but autostart failed: " + e.Message);
             return;
         }
         c.Save();
-        SaveStatus =
-            $"Saved {DateTime.Now:HH:mm:ss}. Hoster order and FlareSolverr URL apply to the next job; library paths apply to new installs.";
+        Saved?.Invoke("Settings saved");
     }
 
     /// <summary>Tests the URL as typed (not the saved one) and, when it answers, saves it right away so a working address never needs a second click.</summary>

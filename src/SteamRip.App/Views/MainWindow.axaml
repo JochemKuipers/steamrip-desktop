@@ -844,19 +844,11 @@
                         </StackPanel>
                     </Border>
 
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button
-                            Classes="primary"
-                            Content="Save changes"
-                            Command="{Binding SaveCommand}"
-                        />
-                        <TextBlock
-                            Classes="muted"
-                            Text="{Binding SaveStatus}"
-                            VerticalAlignment="Center"
-                            TextWrapping="Wrap"
-                        />
-                    </StackPanel>
+                    <TextBlock
+                        Classes="muted"
+                        Text="Changes save by themselves. Hoster order and FlareSolverr URL apply to the next job; library paths apply to new installs."
+                        TextWrapping="Wrap"
+                    />
                 </StackPanel>
             </ScrollViewer>
         </DataTemplate>
@@ -990,6 +982,17 @@
 
             <ContentControl Grid.Column="1" Content="{Binding Current}" />
         </Grid>
+
+        <!-- Toast, bottom right -->
+        <Border
+            Classes="toast"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="0,0,24,20"
+            IsVisible="{Binding ToastVisible}"
+        >
+            <TextBlock Text="{Binding Toast}" />
+        </Border>
 
         <!-- Launch options side sheet: an overlay over the whole window so every field fits and scrolls -->
         <Panel IsVisible="{Binding IsEditing}">

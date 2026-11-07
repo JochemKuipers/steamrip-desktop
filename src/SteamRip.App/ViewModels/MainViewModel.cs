@@ -50,6 +50,23 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseEditor() => Editing = null;
 
+    [ObservableProperty]
+    public partial string Toast { get; set; } = "";
+
+    [ObservableProperty]
+    public partial bool ToastVisible { get; set; }
+
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
+
+    /// <summary>Short confirmation in the bottom-right corner; a new one restarts the clock.</summary>
+    public void ShowToast(string text)
+    {
+        Toast = text;
+        ToastVisible = true;
+        _toastTimer.Stop();
+        _toastTimer.Start();
+    }
+
     public MainViewModel(AppServices s)
     {
         _s = s;
@@ -60,6 +77,12 @@ public partial class MainViewModel : ObservableObject
         Settings = new SettingsViewModel(s);
         Current = Library;
         Library.OptionsRequested += item => Editing = item;
+        Settings.Saved += ShowToast;
+        _toastTimer.Tick += (_, _) =>
+        {
+            _toastTimer.Stop();
+            ToastVisible = false;
+        };
         Library.Items.CollectionChanged += (_, e) =>
         {
             if (Editing is not null && e.OldItems?.Contains(Editing) == true)

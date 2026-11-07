@@ -137,6 +137,14 @@
     <Style Selector="Button.backdrop:pressed /template/ ContentPresenter">
         <Setter Property="Background" Value="#99090B12" />
     </Style>
+    <Style Selector="Border.toast">
+        <Setter Property="Background" Value="{StaticResource Raised}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,9" />
+        <Setter Property="BoxShadow" Value="0 6 24 0 #66000000" />
+    </Style>
     <Style Selector="Border.sheet">
         <Setter Property="Background" Value="{StaticResource Panel}" />
         <Setter Property="BorderBrush" Value="{StaticResource Line}" />
