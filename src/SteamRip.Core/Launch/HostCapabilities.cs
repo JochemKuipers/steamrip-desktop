@@ -15,14 +15,29 @@ public enum HdrState
     Enabled,
 }
 
-public sealed record DisplayInfo(string Name, HdrState Hdr, int Width = 0, int Height = 0);
+/// <summary>One output. SdrNits/PeakNits are the compositor's SDR-white and maximum luminance (0 = unknown); Wine only reports HDR when peak &gt; SDR white.</summary>
+public sealed record DisplayInfo(
+    string Name,
+    HdrState Hdr,
+    int Width = 0,
+    int Height = 0,
+    int SdrNits = 0,
+    int PeakNits = 0
+)
+{
+    /// <summary>HDR is on but SDR white sits at (or above) the peak, so there is no headroom and Wine's Wayland driver reports SDR.</summary>
+    public bool NoHdrHeadroom =>
+        Hdr == HdrState.Enabled && SdrNits > 0 && PeakNits > 0 && SdrNits >= PeakNits;
+}
 
 /// <summary>Which environment variables a Proton build's <c>proton</c> script actually reads.</summary>
 public sealed record ProtonCapabilities(string Name, string Path, IReadOnlySet<string> EnvVars)
 {
     public bool Wayland =>
         EnvVars.Contains("PROTON_ENABLE_WAYLAND") || EnvVars.Contains("PROTON_USE_WAYLAND");
-    public bool Hdr => EnvVars.Contains("PROTON_ENABLE_HDR") || EnvVars.Contains("DXVK_HDR");
+
+    /// <summary>Proton 10-era build whose HDR has to be forced with <c>DXVK_HDR</c>/<c>PROTON_ENABLE_HDR</c>; 11-based builds detect it and mention neither.</summary>
+    public bool LegacyHdr => EnvVars.Contains("PROTON_ENABLE_HDR") || EnvVars.Contains("DXVK_HDR");
     public bool FsyncToggle => EnvVars.Contains("PROTON_NO_FSYNC");
 }
 
@@ -93,8 +108,15 @@ public sealed partial record HostCapabilities(
 
     public bool IsX11 => Session.Equals("x11", StringComparison.OrdinalIgnoreCase);
 
-    public ProtonCapabilities? Proton(string? path) =>
-        path is null ? null : Protons.FirstOrDefault(p => p.Path == path);
+    /// <summary>Capabilities of a stored Proton value; keywords (and empty = GE-Proton) resolve to the newest installed build, null if not downloaded yet.</summary>
+    public ProtonCapabilities? Proton(string? path)
+    {
+        var effective = ProtonLocator.Effective(path);
+        var dir = ProtonLocator.IsKeyword(effective)
+            ? ProtonLocator.ResolveInstalled(effective)
+            : effective;
+        return dir is null ? null : Protons.FirstOrDefault(p => p.Path == dir);
+    }
 
     /// <summary>One human line per fact, for the Settings page and the log.</summary>
     public IEnumerable<string> Lines()
@@ -105,6 +127,12 @@ public sealed partial record HostCapabilities(
             yield return "Displays: none detected";
         foreach (var d in Displays)
             yield return $"{d.Name}: HDR {Describe(d.Hdr)}"
+                + (
+                    d is { SdrNits: > 0, PeakNits: > 0 }
+                        ? $", SDR white {d.SdrNits} / peak {d.PeakNits} nits"
+                            + (d.NoHdrHeadroom ? " (no headroom: games will see SDR)" : "")
+                        : ""
+                )
                 + (d.Width > 0 ? $", {d.Width}x{d.Height}" : "");
         yield return Gpu is null
             ? "GPU: unknown (vulkaninfo not found)"
@@ -122,7 +150,7 @@ public sealed partial record HostCapabilities(
         yield return "gamemode: " + (GameModePath ?? "not installed");
         yield return "NTSync: " + (NtSync ? "/dev/ntsync present (wine uses it by itself)" : "no");
         foreach (var p in Protons)
-            yield return $"{p.Name}: Wayland {(p.Wayland ? "yes" : "no")}, HDR vars {(p.Hdr ? "yes" : "no")}, fsync toggle {(p.FsyncToggle ? "yes" : "no")}";
+            yield return $"{p.Name}: Wayland {(p.Wayland ? "yes" : "no")}, HDR {(p.LegacyHdr ? "forced via env (old build)" : "auto-detect")}, fsync toggle {(p.FsyncToggle ? "yes" : "no")}";
     }
 
     private static string Describe(HdrState s) =>
@@ -154,8 +182,15 @@ public sealed partial record HostCapabilities(
                     ? "gamescope is not installed; HDR without it needs Wine's Wayland driver."
                 : GamescopeHdr ? null
                 : "This gamescope build has no --hdr-enabled.";
-        if (Proton(protonPath) is { Wayland: false } p)
-            return $"{p.Name} has no Wayland driver support; HDR only works through gamescope here.";
+        switch (Proton(protonPath))
+        {
+            case { Wayland: false } p:
+                return $"{p.Name} has no Wayland driver support; HDR only works through gamescope here.";
+            case { LegacyHdr: true } p:
+                return $"{p.Name} is a Proton 10 build without HDR auto-detection; use GE-Proton, DW-Proton or Proton-CachyOS.";
+        }
+        if (Displays.FirstOrDefault(d => d.NoHdrHeadroom) is { } flat)
+            return $"{flat.Name}: SDR brightness ({flat.SdrNits} nits) is at the peak ({flat.PeakNits}), so Wine sees an SDR display. Lower the SDR brightness in Display settings, or add PROTON_FORCE_HDR=1 to the environment.";
         return Gpu is { HdrWsiBuiltIn: false } && !HdrWsiLayer
             ? "The GPU driver has no HDR Vulkan WSI; update it, install the HDR layer, or use gamescope."
             : null;
@@ -350,6 +385,20 @@ public sealed partial record HostCapabilities(
                 };
             else if (
                 cur is not null
+                && line.StartsWith("SDR brightness:", StringComparison.Ordinal)
+            )
+                cur = cur with { SdrNits = FirstInt(line) };
+            else if (
+                cur is not null
+                && line.StartsWith("Peak brightness:", StringComparison.Ordinal)
+            )
+                // "418 nits, overridden with: 750 nits": the override is what KWin reports to clients
+                cur = cur with
+                {
+                    PeakNits = LastInt(line),
+                };
+            else if (
+                cur is not null
                 && line.StartsWith("Geometry:", StringComparison.Ordinal)
                 && ScreenMode().Match(line) is { Success: true } g
             )
@@ -441,6 +490,12 @@ public sealed partial record HostCapabilities(
         }
         return list;
     }
+
+    private static int FirstInt(string line) =>
+        Digits().Match(line) is { Success: true } m ? int.Parse(m.Value) : 0;
+
+    private static int LastInt(string line) =>
+        Digits().Matches(line) is { Count: > 0 } ms ? int.Parse(ms[^1].Value) : 0;
 
     /// <summary>True when any CTA-861 extension block carries the HDR Static Metadata data block (extended tag 6).</summary>
     public static bool EdidHasHdr(ReadOnlySpan<byte> edid)
@@ -589,6 +644,9 @@ public sealed partial record HostCapabilities(
 
     [GeneratedRegex(@"^\s*(\w+)\s*=\s*(.+)$", RegexOptions.Multiline)]
     private static partial Regex VulkanField();
+
+    [GeneratedRegex(@"\d+")]
+    private static partial Regex Digits();
 
     [GeneratedRegex(@"\b(PROTON_[A-Z0-9_]+|DXVK_HDR|WINE_FULLSCREEN_FSR)\b")]
     private static partial Regex ProtonVar();

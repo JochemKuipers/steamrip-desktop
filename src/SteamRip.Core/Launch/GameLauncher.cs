@@ -115,7 +115,7 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
             exe,
             Path.GetFileName(runner ?? exe),
             prefix ?? "n/a",
-            spec.ProtonPath ?? "umu default",
+            spec.ProtonPath ?? "umu default (UMU-Proton)",
             cmd.Environment.GetValueOrDefault("GAMEID", "n/a"),
             spec.Arguments ?? "",
             string.Join(
@@ -251,12 +251,13 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
 
             if (o.Hdr == true)
             {
-                // ArchWiki/HDR: either gamescope --hdr-enabled, or Wine's Wayland driver. Both need DXVK_HDR.
-                env["DXVK_HDR"] = "1";
+                // GE-Proton 11 / Proton-CachyOS / DW-Proton detect HDR themselves (DXVK + VKD3D-Proton query the
+                // Vulkan surface). Forcing DXVK_HDR / PROTON_ENABLE_HDR makes the game output PQ onto an output Wine
+                // believes is SDR: grey blacks and dull colours. So: gamescope --hdr-enabled, or Wine's Wayland
+                // driver so the compositor's colour management is visible; nothing else.
                 if (gamescope is null)
                 {
                     env["PROTON_ENABLE_WAYLAND"] = "1";
-                    env["PROTON_ENABLE_HDR"] = "1";
                     if (o.Wayland != true)
                         warnings.Add(
                             "HDR without gamescope needs Wine's Wayland driver; enabling PROTON_ENABLE_WAYLAND for this launch."
@@ -267,6 +268,16 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                         "ENABLE_HDR_WSI is set in the environment; gamescope HDR works without it and it can break the output."
                     );
             }
+            warnings.AddRange(
+                userEnv
+                    .Where(kv =>
+                        kv.Key is "DXVK_HDR" or "PROTON_ENABLE_HDR" or "PROTON_USE_HDR"
+                        && kv.Value == "1"
+                    )
+                    .Select(kv =>
+                        $"{kv.Key}=1 is set in the environment; current Proton builds detect HDR themselves and this forces PQ output onto what Wine sees as an SDR display (grey blacks). Use PROTON_FORCE_HDR=1 if you really need to force it."
+                    )
+            );
             if (o.Wayland == true)
                 env["PROTON_ENABLE_WAYLAND"] = "1";
             if (o.Fsr == true)

@@ -11,8 +11,8 @@ public class HostCapabilitiesTests
         Assert.Equal(
             [
                 new DisplayInfo("HDMI-A-2", HdrState.Incapable, 1920, 1080),
-                new DisplayInfo("DP-2", HdrState.Enabled, 1920, 1080),
-                new DisplayInfo("DP-1", HdrState.Enabled, 3440, 1440),
+                new DisplayInfo("DP-2", HdrState.Enabled, 1920, 1080, SdrNits: 500, PeakNits: 750),
+                new DisplayInfo("DP-1", HdrState.Enabled, 3440, 1440, SdrNits: 300, PeakNits: 465),
             ],
             d
         );
@@ -85,7 +85,7 @@ public class HostCapabilitiesTests
         var p = new ProtonCapabilities("Proton-CachyOS", "/p", vars);
         Assert.True(p.Wayland);
         Assert.True(p.FsyncToggle);
-        Assert.False(p.Hdr);
+        Assert.False(p.LegacyHdr);
         Assert.Contains("PROTON_USE_WOW64", vars);
     }
 
@@ -140,6 +140,37 @@ public class HostCapabilitiesTests
         );
         Assert.Null(Caps(protonWayland: false).HdrWarning(hdr, null)); // umu default build: unknown, no nagging
         Assert.Null(Caps(protonWayland: false).HdrWarning(hdrScope, "/p"));
+        // Proton 10 builds force HDR through env vars instead of detecting it
+        var legacy = Caps() with
+        {
+            Protons =
+            [
+                new ProtonCapabilities(
+                    "UMU-Proton-10",
+                    "/p",
+                    new HashSet<string> { "PROTON_ENABLE_WAYLAND", "DXVK_HDR" }
+                ),
+            ],
+        };
+        Assert.Contains("without HDR auto-detection", legacy.HdrWarning(hdr, "/p"));
+        // KDE with SDR brightness at the peak: no headroom, Wine reports SDR (gamescope is unaffected)
+        var flat = Caps() with
+        {
+            Displays = [new DisplayInfo("DP-2", HdrState.Enabled, SdrNits: 500, PeakNits: 500)],
+        };
+        Assert.Contains("PROTON_FORCE_HDR", flat.HdrWarning(hdr, "/p"));
+        Assert.Null(flat.HdrWarning(hdrScope, "/p"));
+        Assert.Null(
+            (
+                flat with
+                {
+                    Displays =
+                    [
+                        new DisplayInfo("DP-2", HdrState.Enabled, SdrNits: 300, PeakNits: 465),
+                    ],
+                }
+            ).HdrWarning(hdr, "/p")
+        );
     }
 
     [Fact]

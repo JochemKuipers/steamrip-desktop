@@ -69,7 +69,7 @@ public class LaunchOptionsTests
             "/usr/bin/gamemoderun /usr/bin/gamescope -f -W 2560 -H 1440 --hdr-enabled --mangoapp -- /usr/bin/umu-run /lib/game/Game.exe -dx12",
             string.Join(' ', c.Command)
         );
-        Assert.Equal("1", c.Environment["DXVK_HDR"]);
+        Assert.False(c.Environment.ContainsKey("DXVK_HDR"));
         Assert.False(c.Environment.ContainsKey("MANGOHUD")); // --mangoapp instead of a second overlay
         Assert.False(c.Environment.ContainsKey("PROTON_ENABLE_WAYLAND")); // gamescope is the compositor
         Assert.Equal("umu-1091500", c.Environment["GAMEID"]);
@@ -90,8 +90,8 @@ public class LaunchOptionsTests
             Tools
         );
         Assert.Equal(["/usr/bin/umu-run", "/x/Game.exe", "-dx12"], c.Command);
-        Assert.Equal("1", c.Environment["DXVK_HDR"]);
-        Assert.Equal("1", c.Environment["PROTON_ENABLE_HDR"]);
+        Assert.False(c.Environment.ContainsKey("DXVK_HDR")); // auto-detected by Proton 11 builds
+        Assert.False(c.Environment.ContainsKey("PROTON_ENABLE_HDR"));
         Assert.Equal("1", c.Environment["PROTON_ENABLE_WAYLAND"]);
         Assert.Contains(c.Warnings, w => w.Contains("Wayland"));
     }
@@ -143,7 +143,7 @@ public class LaunchOptionsTests
             MangoHud = true,
             MangoHudConfig = "fps_only",
             DllOverrides = "dinput8=n,b",
-            Environment = "DXVK_HDR=0\nVKD3D_CONFIG=dxr\nPROTON_LOG=0",
+            Environment = "DXVK_HDR=1\nVKD3D_CONFIG=dxr\nPROTON_LOG=0",
             Wrapper = "env FOO=1",
         };
         var c = GameLauncher.Compose(
@@ -161,6 +161,8 @@ public class LaunchOptionsTests
         Assert.Equal("dinput8=n,b", c.Environment["WINEDLLOVERRIDES"]);
         Assert.Equal("0", c.Environment["PROTON_LOG"]); // free-form wins over the toggle
         Assert.Equal("dxr", c.Environment["VKD3D_CONFIG"]);
+        Assert.Equal("1", c.Environment["DXVK_HDR"]); // kept, but called out
+        Assert.Contains(c.Warnings, w => w.StartsWith("DXVK_HDR=1", StringComparison.Ordinal));
     }
 
     [Fact]
