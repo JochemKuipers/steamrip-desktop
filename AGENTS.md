@@ -39,7 +39,7 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ```sh
 make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
 make build        # whole solution; analyzers on, warnings are errors
-make test         # 35 tests, ~1 s, no network
+make test         # 51 tests, ~1 s, no network
 make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
 make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
 make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails
@@ -83,7 +83,8 @@ A change to a resolver is not done until it has resolved and downloaded at least
 - `ILogger` everywhere in Core, injected through the constructor, defaulting to `NullLogger`. Never `Console.WriteLine` in Core.
 - Exceptions: `SolverException`, `HostResolveException(Host, message)`, `DownloadException(retryResolve)`, `LaunchException`, `NeedsAttentionException`. Throw these, not generic ones, so `UpdateService` can decide retry vs. next mirror vs. "needs you".
 - Parsing lives in `HostPages`/`CatalogParser`/`TitleParser` as pure functions over strings, tested against `tests/SteamRip.Core.Tests/Fixtures/`. When a hoster changes its page, save the new HTML as a fixture first, then fix the parser.
-- Settings are a flat JSON class (`Data/Settings.cs`). Add a property with a sensible default; no migration needed.
+- Settings are a flat JSON class (`Data/Settings.cs`). Add a property with a sensible default; no migration needed. The one nested object is `DefaultLaunch` (`Launch/LaunchOptions`), because the same record is stored per game in `installs.launch_json`; its property names are the JSON keys, so add fields, never rename them.
+- Launch tweaks go through `GameLauncher.Compose` (pure, tested); a tool that is not installed is a log warning and a skipped wrapper, never a failed launch. Hardware/software facts come from `HostCapabilities` parsers over fixture text, not from guesses in the UI.
 - DB schema changes go in `Database.Migrations[]` as a new entry (append only, never edit a shipped one). Add the column to the matching record and to the SELECT/INSERT in `Database.cs`.
 - Mark knowingly-limited code with a `// ponytail: <what the ceiling is>` comment, e.g. the GoFile salt, the FileDitch expiry assumption, the save-dir heuristic.
 - `Hoster` enum values are stable identifiers used in `Settings.HosterOrder`; renaming breaks user configs.
