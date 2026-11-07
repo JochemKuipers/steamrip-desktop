@@ -32,6 +32,11 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     [ObservableProperty]
     public partial string? LastError { get; set; }
 
+    /// <summary>Raised when a card asks for its launch options; the shell shows them in the side sheet.</summary>
+    public event Action<LibraryItem>? OptionsRequested;
+
+    internal void RequestOptions(LibraryItem item) => OptionsRequested?.Invoke(item);
+
     public void Refresh()
     {
         var installs = s.Db.GetInstalls();
@@ -369,6 +374,9 @@ public sealed partial class LibraryItem : ObservableObject
 
     [RelayCommand]
     private void Stop() => _owner.Stop(this);
+
+    [RelayCommand]
+    private void Options() => _owner.RequestOptions(this);
 
     [RelayCommand]
     private void UpdateNow() => _owner.Update(this);

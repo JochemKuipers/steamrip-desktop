@@ -304,73 +304,11 @@
                                                 IsEnabled="{Binding IsIdle}"
                                                 Foreground="{StaticResource Amber}"
                                             />
-                                            <Button Classes="quiet" Content="Launch options">
-                                                <Button.Flyout>
-                                                    <Flyout Placement="BottomEdgeAlignedRight">
-                                                        <StackPanel Spacing="8" Width="540">
-                                                            <TextBlock
-                                                                Classes="eyebrow"
-                                                                Text="EXECUTABLE"
-                                                            />
-                                                            <ComboBox
-                                                                ItemsSource="{Binding Exes}"
-                                                                SelectedItem="{Binding SelectedExe}"
-                                                                HorizontalAlignment="Stretch"
-                                                                FontFamily="{StaticResource Mono}"
-                                                                FontSize="12"
-                                                            />
-                                                            <TextBlock
-                                                                Classes="eyebrow"
-                                                                Text="PROTON"
-                                                                Margin="0,6,0,0"
-                                                            />
-                                                            <ComboBox
-                                                                ItemsSource="{Binding Protons}"
-                                                                SelectedItem="{Binding SelectedProton}"
-                                                                HorizontalAlignment="Stretch"
-                                                            />
-                                                            <TextBlock
-                                                                Classes="eyebrow"
-                                                                Text="EXTRA ARGUMENTS"
-                                                                Margin="0,6,0,0"
-                                                            />
-                                                            <TextBox
-                                                                Text="{Binding LaunchArgs}"
-                                                                PlaceholderText="-windowed -nosplash"
-                                                                FontFamily="{StaticResource Mono}"
-                                                                FontSize="12"
-                                                            />
-                                                            <TextBlock
-                                                                Classes="eyebrow"
-                                                                Text="TWEAKS · unset boxes inherit the Settings defaults"
-                                                                Margin="0,10,0,0"
-                                                            />
-                                                            <ContentControl Content="{Binding Launch}" />
-                                                            <StackPanel
-                                                                Orientation="Horizontal"
-                                                                Spacing="6"
-                                                                Margin="0,6,0,0"
-                                                            >
-                                                                <Button
-                                                                    Classes="quiet"
-                                                                    Content="Game folder"
-                                                                    Command="{Binding OpenFolderCommand}"
-                                                                />
-                                                                <Button
-                                                                    Classes="quiet"
-                                                                    Content="Prefix folder"
-                                                                    Command="{Binding OpenPrefixCommand}"
-                                                                />
-                                                                <Button
-                                                                    Classes="quiet"
-                                                                    Content="Site page"
-                                                                    Command="{Binding OpenPageCommand}"
-                                                                />
-                                                            </StackPanel>
-                                                        </StackPanel>
-                                                    </Flyout>
-                                                </Button.Flyout>
-                                            </Button>
+                                            <Button
+                                                Classes="quiet"
+                                                Content="Launch options"
+                                                Command="{Binding OptionsCommand}"
+                                            />
                                             <Button Classes="quiet" Content="⋯">
                                                 <Button.Flyout>
                                                     <MenuFlyout>
@@ -956,131 +894,212 @@
         </DataTemplate>
     </Window.DataTemplates>
 
-    <Grid ColumnDefinitions="208,*">
-        <!-- Nav rail -->
-        <Border
-            Background="{StaticResource Panel}"
-            BorderBrush="{StaticResource Line}"
-            BorderThickness="0,0,1,0"
-        >
-            <DockPanel Margin="12,18,12,14">
-                <StackPanel
-                    DockPanel.Dock="Top"
-                    Margin="8,0,0,18"
-                    Orientation="Horizontal"
-                    Spacing="10"
-                >
-                    <Image
-                        Source="avares://steamrip-desktop/Assets/app.png"
-                        Width="22"
-                        Height="22"
-                    />
-                    <TextBlock
-                        Text="SteamRIP"
-                        FontWeight="SemiBold"
-                        FontSize="15"
-                        VerticalAlignment="Center"
-                    />
-                </StackPanel>
+    <Panel>
+        <Grid ColumnDefinitions="208,*">
+            <!-- Nav rail -->
+            <Border
+                Background="{StaticResource Panel}"
+                BorderBrush="{StaticResource Line}"
+                BorderThickness="0,0,1,0"
+            >
+                <DockPanel Margin="12,18,12,14">
+                    <StackPanel
+                        DockPanel.Dock="Top"
+                        Margin="8,0,0,18"
+                        Orientation="Horizontal"
+                        Spacing="10"
+                    >
+                        <Image
+                            Source="avares://steamrip-desktop/Assets/app.png"
+                            Width="22"
+                            Height="22"
+                        />
+                        <TextBlock
+                            Text="SteamRIP"
+                            FontWeight="SemiBold"
+                            FontSize="15"
+                            VerticalAlignment="Center"
+                        />
+                    </StackPanel>
 
-                <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="8,0,0,0">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Ellipse
-                            Classes="dot"
-                            Fill="{StaticResource Green}"
-                            IsVisible="{Binding SolverHealthy}"
-                        />
-                        <Ellipse
-                            Classes="dot"
-                            Fill="{StaticResource Red}"
-                            IsVisible="{Binding !SolverHealthy}"
-                        />
+                    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Ellipse
+                                Classes="dot"
+                                Fill="{StaticResource Green}"
+                                IsVisible="{Binding SolverHealthy}"
+                            />
+                            <Ellipse
+                                Classes="dot"
+                                Fill="{StaticResource Red}"
+                                IsVisible="{Binding !SolverHealthy}"
+                            />
+                            <TextBlock
+                                Classes="muted"
+                                FontSize="11"
+                                Text="FlareSolverr"
+                                ToolTip.Tip="{Binding SolverLine}"
+                            />
+                        </StackPanel>
                         <TextBlock
                             Classes="muted"
                             FontSize="11"
-                            Text="FlareSolverr"
-                            ToolTip.Tip="{Binding SolverLine}"
+                            Text="{Binding SyncLine}"
+                            TextWrapping="Wrap"
+                        />
+                        <Button
+                            Classes="quiet"
+                            Content="Sync now"
+                            Command="{Binding SyncNowCommand}"
+                            IsEnabled="{Binding !Syncing}"
+                            HorizontalAlignment="Left"
+                            Padding="10,4"
+                            FontSize="12"
                         />
                     </StackPanel>
-                    <TextBlock
-                        Classes="muted"
-                        FontSize="11"
-                        Text="{Binding SyncLine}"
-                        TextWrapping="Wrap"
-                    />
-                    <Button
-                        Classes="quiet"
-                        Content="Sync now"
-                        Command="{Binding SyncNowCommand}"
-                        IsEnabled="{Binding !Syncing}"
-                        HorizontalAlignment="Left"
-                        Padding="10,4"
-                        FontSize="12"
-                    />
-                </StackPanel>
 
-                <StackPanel Spacing="2">
-                    <Button
-                        Classes="nav"
-                        Content="Library"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="Library"
-                        Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Library}"
-                    />
-                    <Button
-                        Classes="nav"
-                        Content="Browse"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="Browse"
-                        Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Browse}"
-                    />
-                    <Button
-                        Classes="nav"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="Queue"
-                        Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Queue}"
-                    >
-                        <DockPanel>
-                            <Border
-                                DockPanel.Dock="Right"
-                                Classes="pill amber"
-                                IsVisible="{Binding QueueCount}"
-                            >
-                                <TextBlock FontSize="11" Text="{Binding QueueCount}" />
-                            </Border>
-                            <Border
-                                DockPanel.Dock="Right"
-                                Classes="pill"
-                                Margin="0,0,4,0"
-                                IsVisible="{Binding AttentionCount}"
-                            >
-                                <TextBlock
-                                    FontSize="11"
-                                    Classes="red"
-                                    Text="{Binding AttentionCount}"
+                    <StackPanel Spacing="2">
+                        <Button
+                            Classes="nav"
+                            Content="Library"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="Library"
+                            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Library}"
+                        />
+                        <Button
+                            Classes="nav"
+                            Content="Browse"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="Browse"
+                            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Browse}"
+                        />
+                        <Button
+                            Classes="nav"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="Queue"
+                            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Queue}"
+                        >
+                            <DockPanel>
+                                <Border
+                                    DockPanel.Dock="Right"
+                                    Classes="pill amber"
+                                    IsVisible="{Binding QueueCount}"
+                                >
+                                    <TextBlock FontSize="11" Text="{Binding QueueCount}" />
+                                </Border>
+                                <Border
+                                    DockPanel.Dock="Right"
+                                    Classes="pill"
+                                    Margin="0,0,4,0"
+                                    IsVisible="{Binding AttentionCount}"
+                                >
+                                    <TextBlock
+                                        FontSize="11"
+                                        Classes="red"
+                                        Text="{Binding AttentionCount}"
+                                    />
+                                </Border>
+                                <TextBlock Text="Queue" />
+                            </DockPanel>
+                        </Button>
+                        <Button
+                            Classes="nav"
+                            Content="Activity"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="Activity"
+                            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Activity}"
+                        />
+                        <Button
+                            Classes="nav"
+                            Content="Settings"
+                            Command="{Binding NavigateCommand}"
+                            CommandParameter="Settings"
+                            Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Settings}"
+                        />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <ContentControl Grid.Column="1" Content="{Binding Current}" />
+        </Grid>
+
+        <!-- Launch options side sheet: an overlay over the whole window so every field fits and scrolls -->
+        <Panel IsVisible="{Binding IsEditing}">
+            <Button
+                Classes="backdrop"
+                Command="{Binding CloseEditorCommand}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+            />
+            <Border Classes="sheet" HorizontalAlignment="Right" Width="600">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="24,20,20,12">
+                        <StackPanel>
+                            <TextBlock Classes="eyebrow" Text="LAUNCH OPTIONS" />
+                            <TextBlock
+                                Classes="h1"
+                                Text="{Binding Editing.Name, FallbackValue=''}"
+                                TextTrimming="CharacterEllipsis"
+                            />
+                        </StackPanel>
+                        <Button
+                            Grid.Column="1"
+                            Classes="quiet"
+                            Content="Close"
+                            Command="{Binding CloseEditorCommand}"
+                            VerticalAlignment="Top"
+                        />
+                    </Grid>
+                    <ScrollViewer>
+                        <StackPanel Spacing="8" Margin="24,0,24,24" DataContext="{Binding Editing}">
+                            <TextBlock Classes="eyebrow" Text="EXECUTABLE" />
+                            <ComboBox
+                                ItemsSource="{Binding Exes}"
+                                SelectedItem="{Binding SelectedExe}"
+                                HorizontalAlignment="Stretch"
+                                FontFamily="{StaticResource Mono}"
+                                FontSize="12"
+                            />
+                            <TextBlock Classes="eyebrow" Text="PROTON" Margin="0,6,0,0" />
+                            <ComboBox
+                                ItemsSource="{Binding Protons}"
+                                SelectedItem="{Binding SelectedProton}"
+                                HorizontalAlignment="Stretch"
+                            />
+                            <TextBlock Classes="eyebrow" Text="EXTRA ARGUMENTS" Margin="0,6,0,0" />
+                            <TextBox
+                                Text="{Binding LaunchArgs}"
+                                PlaceholderText="-windowed -nosplash"
+                                FontFamily="{StaticResource Mono}"
+                                FontSize="12"
+                            />
+                            <TextBlock
+                                Classes="eyebrow"
+                                Text="TWEAKS · unset boxes inherit the Settings defaults"
+                                Margin="0,14,0,0"
+                            />
+                            <ContentControl Content="{Binding Launch}" />
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,14,0,0">
+                                <Button
+                                    Classes="quiet"
+                                    Content="Game folder"
+                                    Command="{Binding OpenFolderCommand}"
                                 />
-                            </Border>
-                            <TextBlock Text="Queue" />
-                        </DockPanel>
-                    </Button>
-                    <Button
-                        Classes="nav"
-                        Content="Activity"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="Activity"
-                        Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Activity}"
-                    />
-                    <Button
-                        Classes="nav"
-                        Content="Settings"
-                        Command="{Binding NavigateCommand}"
-                        CommandParameter="Settings"
-                        Classes.active="{Binding Section, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=Settings}"
-                    />
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <ContentControl Grid.Column="1" Content="{Binding Current}" />
-    </Grid>
+                                <Button
+                                    Classes="quiet"
+                                    Content="Prefix folder"
+                                    Command="{Binding OpenPrefixCommand}"
+                                />
+                                <Button
+                                    Classes="quiet"
+                                    Content="Site page"
+                                    Command="{Binding OpenPageCommand}"
+                                />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Panel>
+    </Panel>
 </Window>

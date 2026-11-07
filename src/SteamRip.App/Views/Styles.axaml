@@ -124,6 +124,25 @@
         <Setter Property="Background" Value="{StaticResource Raised}" />
         <Setter Property="Foreground" Value="{StaticResource Text}" />
     </Style>
+    <!-- Side sheet overlay -->
+    <Style Selector="Button.backdrop">
+        <Setter Property="Background" Value="#99090B12" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.backdrop:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#99090B12" />
+    </Style>
+    <Style Selector="Button.backdrop:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#99090B12" />
+    </Style>
+    <Style Selector="Border.sheet">
+        <Setter Property="Background" Value="{StaticResource Panel}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1,0,0,0" />
+        <Setter Property="BoxShadow" Value="-8 0 32 0 #66000000" />
+    </Style>
     <Style Selector="Button.danger">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{StaticResource Red}" />

@@ -40,6 +40,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     public partial int AttentionCount { get; set; }
 
+    /// <summary>The game whose launch options are open in the side sheet; null = closed.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditing))]
+    public partial LibraryItem? Editing { get; set; }
+
+    public bool IsEditing => Editing is not null;
+
+    [RelayCommand]
+    private void CloseEditor() => Editing = null;
+
     public MainViewModel(AppServices s)
     {
         _s = s;
@@ -49,6 +59,12 @@ public partial class MainViewModel : ObservableObject
         Activity = new ActivityViewModel(s);
         Settings = new SettingsViewModel(s);
         Current = Library;
+        Library.OptionsRequested += item => Editing = item;
+        Library.Items.CollectionChanged += (_, e) =>
+        {
+            if (Editing is not null && e.OldItems?.Contains(Editing) == true)
+                Editing = null; // the game was forgotten or deleted while its sheet was open
+        };
 
         s.Updates.SyncChanged += () => Dispatcher.UIThread.Post(RefreshSync);
         s.Updates.JobsChanged += () => Dispatcher.UIThread.Post(RefreshCounts);
