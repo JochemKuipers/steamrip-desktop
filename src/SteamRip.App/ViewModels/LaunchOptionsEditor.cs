@@ -39,7 +39,7 @@ public sealed partial class LaunchOptionsEditor(
 
     public bool IsLinux => OperatingSystem.IsLinux();
 
-    /// <summary>True on a game card: boxes cycle through on / off / inherit.</summary>
+    /// <summary>True on a game card: boxes start at the Settings default and only a change is stored.</summary>
     public bool IsPerGame => inherited() is not null;
 
     [ObservableProperty]
@@ -81,20 +81,22 @@ public sealed partial class LaunchOptionsEditor(
     [ObservableProperty]
     public partial string Wrapper { get; set; } = "";
 
+    /// <summary>Per game the boxes show the effective value (override or inherited default); text fields stay blank when inherited.</summary>
     public void Load(LaunchOptions? o)
     {
         _loading = true;
         o ??= new LaunchOptions();
-        MangoHud = o.MangoHud;
+        var d = Inherited;
+        MangoHud = o.MangoHud ?? d.MangoHud;
         MangoHudConfig = o.MangoHudConfig ?? "";
-        GameMode = o.GameMode;
-        Gamescope = o.Gamescope;
+        GameMode = o.GameMode ?? d.GameMode;
+        Gamescope = o.Gamescope ?? d.Gamescope;
         GamescopeArgs = o.GamescopeArgs ?? "";
-        Hdr = o.Hdr;
-        Wayland = o.Wayland;
-        Fsr = o.Fsr;
-        Fsync = o.Fsync;
-        ProtonLog = o.ProtonLog;
+        Hdr = o.Hdr ?? d.Hdr;
+        Wayland = o.Wayland ?? d.Wayland;
+        Fsr = o.Fsr ?? d.Fsr;
+        Fsync = o.Fsync ?? d.Fsync;
+        ProtonLog = o.ProtonLog ?? d.ProtonLog;
         DllOverrides = o.DllOverrides ?? "";
         Environment = o.Environment ?? "";
         Wrapper = o.Wrapper ?? "";
@@ -102,28 +104,35 @@ public sealed partial class LaunchOptionsEditor(
         Refresh();
     }
 
-    public LaunchOptions ToOptions() =>
-        new(
-            MangoHud,
+    /// <summary>Per game, a toggle equal to the inherited default is stored as null so the game keeps following the defaults.</summary>
+    public LaunchOptions ToOptions()
+    {
+        var d = Inherited;
+        return new LaunchOptions(
+            Override(MangoHud, d.MangoHud),
             Blank(MangoHudConfig),
-            GameMode,
-            Gamescope,
+            Override(GameMode, d.GameMode),
+            Override(Gamescope, d.Gamescope),
             Blank(GamescopeArgs),
-            Hdr,
-            Wayland,
-            Fsr,
-            Fsync,
-            ProtonLog,
+            Override(Hdr, d.Hdr),
+            Override(Wayland, d.Wayland),
+            Override(Fsr, d.Fsr),
+            Override(Fsync, d.Fsync),
+            Override(ProtonLog, d.ProtonLog),
             Blank(DllOverrides),
             Blank(Environment),
             Blank(Wrapper)
         );
+    }
+
+    private bool? Override(bool? mine, bool? theirs) => IsPerGame && mine == theirs ? null : mine;
 
     /// <summary>What a launch would actually use right now.</summary>
-    public LaunchOptions Effective =>
-        ToOptions()
-            .MergeOver(inherited() ?? LaunchOptions.AppDefaults)
-            .MergeOver(LaunchOptions.AppDefaults);
+    public LaunchOptions Effective => ToOptions().MergeOver(Inherited);
+
+    /// <summary>The Settings defaults on a game card; the app defaults on the Settings page. Never has null toggles.</summary>
+    private LaunchOptions Inherited =>
+        (inherited() ?? LaunchOptions.AppDefaults).MergeOver(LaunchOptions.AppDefaults);
 
     /// <summary>Re-reads labels, hints and the HDR warning (after the probe finished or the defaults changed).</summary>
     public void Refresh() => OnPropertyChanged(string.Empty);

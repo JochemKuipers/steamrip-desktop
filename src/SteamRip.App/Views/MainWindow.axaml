@@ -22,46 +22,14 @@
                     IsVisible="{Binding !IsLinux}"
                 />
                 <UniformGrid Columns="2" IsEnabled="{Binding IsLinux}">
-                    <CheckBox
-                        Content="{Binding MangoHudLabel}"
-                        IsChecked="{Binding MangoHud}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding GameModeLabel}"
-                        IsChecked="{Binding GameMode}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding GamescopeLabel}"
-                        IsChecked="{Binding Gamescope}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding HdrLabel}"
-                        IsChecked="{Binding Hdr}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding WaylandLabel}"
-                        IsChecked="{Binding Wayland}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding FsrLabel}"
-                        IsChecked="{Binding Fsr}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding FsyncLabel}"
-                        IsChecked="{Binding Fsync}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
-                    <CheckBox
-                        Content="{Binding ProtonLogLabel}"
-                        IsChecked="{Binding ProtonLog}"
-                        IsThreeState="{Binding IsPerGame}"
-                    />
+                    <CheckBox Content="{Binding MangoHudLabel}" IsChecked="{Binding MangoHud}" />
+                    <CheckBox Content="{Binding GameModeLabel}" IsChecked="{Binding GameMode}" />
+                    <CheckBox Content="{Binding GamescopeLabel}" IsChecked="{Binding Gamescope}" />
+                    <CheckBox Content="{Binding HdrLabel}" IsChecked="{Binding Hdr}" />
+                    <CheckBox Content="{Binding WaylandLabel}" IsChecked="{Binding Wayland}" />
+                    <CheckBox Content="{Binding FsrLabel}" IsChecked="{Binding Fsr}" />
+                    <CheckBox Content="{Binding FsyncLabel}" IsChecked="{Binding Fsync}" />
+                    <CheckBox Content="{Binding ProtonLogLabel}" IsChecked="{Binding ProtonLog}" />
                 </UniformGrid>
                 <TextBlock
                     Classes="amber"
@@ -118,7 +86,7 @@
                 />
                 <Button
                     Classes="quiet"
-                    Content="Reset to defaults"
+                    Content="Back to Settings defaults"
                     Command="{Binding ResetCommand}"
                     HorizontalAlignment="Left"
                     IsVisible="{Binding IsPerGame}"
@@ -1075,7 +1043,7 @@
                             />
                             <TextBlock
                                 Classes="eyebrow"
-                                Text="TWEAKS · unset boxes inherit the Settings defaults"
+                                Text="TWEAKS · start at the Settings defaults; only what you change is saved for this game"
                                 Margin="0,14,0,0"
                             />
                             <ContentControl Content="{Binding Launch}" />
