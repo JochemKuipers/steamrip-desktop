@@ -1,6 +1,5 @@
 # Cut a release by pushing a tag: `make release VERSION=1.2.3` (runs the full gate, tags v1.2.3, pushes).
-# This builds every package, publishes a GitHub Release with auto-generated notes, and updates the AUR package
-# (aur.yml, plain ssh with AUR_SSH_PRIVATE_KEY).
+# This builds every package, publishes a GitHub Release with auto-generated notes, and updates the AUR package.
 # Tags with a pre-release suffix (v1.2.3-rc1) are marked pre-release and skip the AUR update.
 name: Release
 
@@ -56,6 +55,8 @@ jobs:
     name: GitHub Release
     needs: [linux, windows]
     runs-on: ubuntu-latest
+    outputs:
+      deb_sha256: ${{ steps.sums.outputs.deb_sha256 }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -68,6 +69,7 @@ jobs:
         run: |
           sha256sum ./* | sed 's|\./||' > SHA256SUMS.txt
           cat SHA256SUMS.txt
+          echo "deb_sha256=$(sha256sum ./*.deb | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Release notes header
         run: |
@@ -103,10 +105,33 @@ jobs:
             dist/SHA256SUMS.txt
 
   aur:
-    name: AUR
+    name: AUR steamrip-desktop-bin
     needs: release
     if: ${{ !contains(github.ref_name, '-') }}
-    uses: ./.github/workflows/aur.yml
-    with:
-      version: ${{ github.ref_name }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Secrets are not visible to job-level `if`, so decide here and skip quietly when the AUR key is not set up.
+      - id: key
+        env:
+          HAS_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+        run: echo "present=$HAS_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Fill PKGBUILD
+        if: steps.key.outputs.present == 'true'
+        run: |
+          sed -e "s/@VERSION@/${GITHUB_REF_NAME#v}/" -e "s/@SHA256@/${{ needs.release.outputs.deb_sha256 }}/" \
+            packaging/aur/PKGBUILD > PKGBUILD
+          cat PKGBUILD
+
+      - uses: KSXGitHub/github-actions-deploy-aur@084b0d9b15415bf9cdb65d44dad1efe37a354050 # v4.2.0
+        if: steps.key.outputs.present == 'true'
+        with:
+          pkgname: steamrip-desktop-bin
+          pkgbuild: ./PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: Update to ${{ github.ref_name }}
+          ssh_keyscan_types: rsa,ecdsa,ed25519
