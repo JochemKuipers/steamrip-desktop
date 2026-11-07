@@ -1,0 +1,28 @@
+Devices:
+========
+GPU0:
+	apiVersion         = 1.4.354
+	driverVersion      = 26.2.6
+	vendorID           = 0x1002
+	deviceID           = 0x744c
+	deviceType         = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+	deviceName         = AMD Radeon RX 7900 XT (RADV NAVI31)
+	driverID           = DRIVER_ID_MESA_RADV
+	driverName         = radv
+	driverInfo         = Mesa 26.2.6-arch3.1
+	conformanceVersion = 1.4.5.3
+	deviceUUID         = 00000000-0300-0000-0000-000000000000
+	driverUUID         = 414d442d-4d45-5341-2d44-525600000000
+GPU1:
+	apiVersion         = 1.4.354
+	driverVersion      = 26.2.6
+	vendorID           = 0x1002
+	deviceID           = 0x164e
+	deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+	deviceName         = AMD Ryzen 7 7700X 8-Core Processor (RADV RAPHAEL_MENDOCINO)
+	driverID           = DRIVER_ID_MESA_RADV
+	driverName         = radv
+	driverInfo         = Mesa 26.2.6-arch3.1
+	conformanceVersion = 1.4.5.3
+	deviceUUID         = 00000000-1300-0000-0000-000000000000
+	driverUUID         = 414d442d-4d45-5341-2d44-525600000000

@@ -1,0 +1,34 @@
+[
+  {
+    "id": 0,
+    "name": "DP-1",
+    "description": "Dell Inc. AW3423DWF ABC123",
+    "make": "Dell Inc.",
+    "model": "AW3423DWF",
+    "width": 3440,
+    "height": 1440,
+    "refreshRate": 164.9,
+    "x": 0,
+    "y": 0,
+    "scale": 1.0,
+    "focused": true,
+    "currentFormat": "XRGB2101010",
+    "availableModes": ["3440x1440@164.90Hz", "3440x1440@59.97Hz"]
+  },
+  {
+    "id": 1,
+    "name": "HDMI-A-2",
+    "description": "Samsung SyncMaster",
+    "make": "Samsung",
+    "model": "SyncMaster",
+    "width": 1920,
+    "height": 1080,
+    "refreshRate": 60.0,
+    "x": 5360,
+    "y": 1440,
+    "scale": 1.0,
+    "focused": false,
+    "currentFormat": "XRGB8888",
+    "availableModes": ["1920x1080@60.00Hz"]
+  }
+]

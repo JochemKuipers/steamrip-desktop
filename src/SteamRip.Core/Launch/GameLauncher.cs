@@ -12,10 +12,22 @@ public sealed record LaunchSpec(
     string ExeRelative,
     string? ProtonPath,
     string? Arguments,
-    long? SteamAppId
+    long? SteamAppId,
+    LaunchOptions? Options = null
 );
 
 public sealed record RunningGame(LaunchSpec Spec, Process Process, DateTime StartedUtc);
+
+/// <summary>The fully composed process: wrappers, runner, exe, args and the env to add. Pure data so it can be asserted in tests.</summary>
+public sealed record LaunchCommand(
+    IReadOnlyList<string> Command,
+    IReadOnlyDictionary<string, string> Environment,
+    IReadOnlyList<string> Warnings
+)
+{
+    public string FileName => Command[0];
+    public IEnumerable<string> Arguments => Command.Skip(1);
+}
 
 /// <summary>
 /// Runs games in a per-game Wine prefix (<c>&lt;game&gt;/prefix</c>) through umu-run + Proton on Linux, or directly on Windows.
@@ -55,62 +67,66 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                 $"Executable not found: {exe}. Pick another one from the game's menu."
             );
 
+        string? runner = null;
+        string? prefix = null;
+        if (!OperatingSystem.IsWindows())
+        {
+            prefix = PrefixDir(spec.GameRoot);
+            Directory.CreateDirectory(prefix);
+            runner = UmuPath ?? WinePath;
+            if (runner is null)
+                throw new LaunchException(
+                    "Neither umu-run nor wine is installed. Install umu-launcher (recommended) to play."
+                );
+            if (UmuPath is null)
+                _log.LogWarning(
+                    "umu-run not found; falling back to plain wine for {Name} (no Proton, no game fixes)",
+                    spec.Name
+                );
+        }
+        var cmd = Compose(
+            spec,
+            runner,
+            exe,
+            prefix,
+            Install.ArchiveTool.Find,
+            HostCapabilities.LargestScreen()
+        );
+        foreach (var w in cmd.Warnings)
+            _log.LogWarning("{Name}: {Warning}", spec.Name, w);
+
         var psi = new ProcessStartInfo
         {
+            FileName = cmd.FileName,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             WorkingDirectory = Path.GetDirectoryName(exe)!,
         };
-        if (OperatingSystem.IsWindows())
-        {
-            psi.FileName = exe;
-            if (!string.IsNullOrWhiteSpace(spec.Arguments))
-                psi.Arguments = spec.Arguments;
-        }
-        else
-        {
-            var prefix = PrefixDir(spec.GameRoot);
-            Directory.CreateDirectory(prefix);
-            var umu = UmuPath;
-            if (umu is not null)
-            {
-                psi.FileName = umu;
-                psi.ArgumentList.Add(exe);
-                psi.Environment["WINEPREFIX"] = prefix;
-                psi.Environment["GAMEID"] = spec.SteamAppId is { } id ? $"umu-{id}" : "umu-default";
-                psi.Environment["STORE"] = "none";
-                if (!string.IsNullOrEmpty(spec.ProtonPath))
-                    psi.Environment["PROTONPATH"] = spec.ProtonPath;
-                psi.Environment.Remove("UMU_RUNTIME_UPDATE"); // let umu keep its runtime current
-            }
-            else if (WinePath is { } wine)
-            {
-                psi.FileName = wine;
-                psi.ArgumentList.Add(exe);
-                psi.Environment["WINEPREFIX"] = prefix;
-                _log.LogWarning(
-                    "umu-run not found; falling back to plain wine for {Name} (no Proton, no game fixes)",
-                    spec.Name
-                );
-            }
-            else
-                throw new LaunchException(
-                    "Neither umu-run nor wine is installed. Install umu-launcher (recommended) to play."
-                );
-            foreach (var a in SplitArgs(spec.Arguments))
-                psi.ArgumentList.Add(a);
-        }
+        foreach (var a in cmd.Arguments)
+            psi.ArgumentList.Add(a);
+        foreach (var (k, v) in cmd.Environment)
+            psi.Environment[k] = v;
+        psi.Environment.Remove("UMU_RUNTIME_UPDATE"); // let umu keep its runtime current
 
         _log.LogInformation(
-            "Launching {Name}: {Exe} via {Runner} (prefix {Prefix}, proton {Proton}, GAMEID {GameId}, args \"{Args}\")",
+            "Launching {Name}: {Exe} via {Runner} (prefix {Prefix}, proton {Proton}, GAMEID {GameId}, args \"{Args}\", wrappers [{Wrappers}], env {Env})",
             spec.Name,
             exe,
-            Path.GetFileName(psi.FileName),
-            psi.Environment.TryGetValue("WINEPREFIX", out var p) ? p : "n/a",
+            Path.GetFileName(runner ?? exe),
+            prefix ?? "n/a",
             spec.ProtonPath ?? "umu default",
-            psi.Environment.TryGetValue("GAMEID", out var g) ? g : "n/a",
-            spec.Arguments ?? ""
+            cmd.Environment.GetValueOrDefault("GAMEID", "n/a"),
+            spec.Arguments ?? "",
+            string.Join(
+                ' ',
+                cmd.Command.TakeWhile(c => c != runner && c != exe).Select(Path.GetFileName)
+            ),
+            string.Join(
+                ' ',
+                cmd.Environment.Where(kv => !BaseEnv.Contains(kv.Key))
+                    .Select(kv => $"{kv.Key}={kv.Value}")
+            )
         );
 
         var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
@@ -173,6 +189,123 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                 tail.TryDequeue(out _);
             _log.LogTrace("[{Name}] {Line}", spec.Name, line);
         }
+    }
+
+    private static readonly HashSet<string> BaseEnv =
+    [
+        "WINEPREFIX",
+        "GAMEID",
+        "STORE",
+        "PROTONPATH",
+    ];
+
+    /// <summary>
+    /// Turns the spec into <c>[wrapper] [gamemoderun] [gamescope … --] runner exe args</c> plus environment.
+    /// <paramref name="runner"/> is umu-run or wine (null on Windows: run the exe directly, Proton options ignored).
+    /// A missing wrapper tool is a warning, never a failed launch.
+    /// </summary>
+    public static LaunchCommand Compose(
+        LaunchSpec spec,
+        string? runner,
+        string exe,
+        string? prefix,
+        Func<string, string?> findTool,
+        (int Width, int Height)? screen = null
+    )
+    {
+        var o = spec.Options ?? LaunchOptions.AppDefaults;
+        var env = new Dictionary<string, string>(StringComparer.Ordinal);
+        var warnings = new List<string>();
+        var cmd = new List<string>();
+        var userEnv = LaunchOptions.ParseEnvironment(o.Environment).ToList();
+
+        if (!string.IsNullOrWhiteSpace(o.Wrapper))
+            cmd.AddRange(SplitArgs(o.Wrapper));
+
+        if (runner is not null)
+        {
+            env["WINEPREFIX"] = prefix!;
+            env["GAMEID"] = spec.SteamAppId is { } id ? $"umu-{id}" : "umu-default";
+            env["STORE"] = "none";
+            if (!string.IsNullOrEmpty(spec.ProtonPath))
+                env["PROTONPATH"] = spec.ProtonPath;
+
+            var gamescope = o.Gamescope == true ? findTool("gamescope") : null;
+            if (o.Gamescope == true && gamescope is null)
+                warnings.Add("gamescope is enabled but not installed; launching without it.");
+
+            if (o.GameMode == true)
+            {
+                if (findTool("gamemoderun") is { } gm)
+                    cmd.Add(gm);
+                else
+                    warnings.Add(
+                        "gamemode is enabled but gamemoderun is not installed; skipping it."
+                    );
+            }
+
+            if (o.MangoHud == true && gamescope is null)
+                env["MANGOHUD"] = "1";
+            if (o.MangoHud == true && !string.IsNullOrWhiteSpace(o.MangoHudConfig))
+                env["MANGOHUD_CONFIG"] = o.MangoHudConfig;
+
+            if (o.Hdr == true)
+            {
+                // ArchWiki/HDR: either gamescope --hdr-enabled, or Wine's Wayland driver. Both need DXVK_HDR.
+                env["DXVK_HDR"] = "1";
+                if (gamescope is null)
+                {
+                    env["PROTON_ENABLE_WAYLAND"] = "1";
+                    env["PROTON_ENABLE_HDR"] = "1";
+                    if (o.Wayland != true)
+                        warnings.Add(
+                            "HDR without gamescope needs Wine's Wayland driver; enabling PROTON_ENABLE_WAYLAND for this launch."
+                        );
+                }
+                else if (userEnv.Any(kv => kv.Key == "ENABLE_HDR_WSI"))
+                    warnings.Add(
+                        "ENABLE_HDR_WSI is set in the environment; gamescope HDR works without it and it can break the output."
+                    );
+            }
+            if (o.Wayland == true)
+                env["PROTON_ENABLE_WAYLAND"] = "1";
+            if (o.Fsr == true)
+                env["WINE_FULLSCREEN_FSR"] = "1";
+            if (o.Fsync == false)
+                env["PROTON_NO_FSYNC"] = "1";
+            if (o.ProtonLog == true)
+                env["PROTON_LOG"] = "1";
+            if (!string.IsNullOrWhiteSpace(o.DllOverrides))
+                env["WINEDLLOVERRIDES"] = o.DllOverrides.Trim();
+
+            if (gamescope is not null)
+            {
+                cmd.Add(gamescope);
+                var args = SplitArgs(o.GamescopeArgs).ToList();
+                cmd.AddRange(args);
+                if (
+                    screen is { } s
+                    && !args.Any(a =>
+                        a is "-W" or "-H" or "--output-width" or "--output-height"
+                        || a.StartsWith("--output-width=", StringComparison.Ordinal)
+                        || a.StartsWith("--output-height=", StringComparison.Ordinal)
+                    )
+                )
+                    cmd.AddRange(["-W", s.Width.ToString(), "-H", s.Height.ToString()]);
+                if (o.Hdr == true && !args.Contains("--hdr-enabled"))
+                    cmd.Add("--hdr-enabled");
+                if (o.MangoHud == true && !args.Contains("--mangoapp"))
+                    cmd.Add("--mangoapp");
+                cmd.Add("--");
+            }
+            cmd.Add(runner);
+        }
+
+        cmd.Add(exe);
+        cmd.AddRange(SplitArgs(spec.Arguments));
+        foreach (var (k, v) in userEnv)
+            env[k] = v;
+        return new LaunchCommand(cmd, env, warnings);
     }
 
     private readonly ConcurrentDictionary<long, byte> _stopped = new();

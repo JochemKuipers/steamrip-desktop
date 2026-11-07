@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using SteamRip.Core.Catalog;
+using SteamRip.Core.Launch;
 
 namespace SteamRip.Core.Data;
 
@@ -29,7 +30,8 @@ public sealed record InstalledGame(
     string? ProtonPath = null,
     string? LaunchArgs = null,
     DateTime? LastPlayedUtc = null,
-    long PlaytimeSeconds = 0
+    long PlaytimeSeconds = 0,
+    LaunchOptions? Launch = null
 );
 
 /// <summary>Hand-written SQLite schema with a migrations table. One file, WAL mode.</summary>
@@ -78,6 +80,8 @@ public sealed class Database : IDisposable
             ALTER TABLE installs ADD COLUMN last_played_utc TEXT;
             ALTER TABLE installs ADD COLUMN playtime_sec INTEGER NOT NULL DEFAULT 0;
             """,
+        // 3: per-game launch tweaks (LaunchOptions as JSON; NULL = inherit the defaults)
+        "ALTER TABLE installs ADD COLUMN launch_json TEXT;",
     ];
 
     private void Migrate()
@@ -194,11 +198,12 @@ public sealed class Database : IDisposable
         lock (_lock)
             Exec(
                 """
-                INSERT INTO installs(post_id,slug,name,installed_version,install_path,installed_utc,auto_update,state,last_error,exe_rel,proton,launch_args,last_played_utc,playtime_sec)
-                VALUES($id,$slug,$name,$ver,$path,$at,$auto,$state,$err,$exe,$proton,$args,$played,$playtime)
+                INSERT INTO installs(post_id,slug,name,installed_version,install_path,installed_utc,auto_update,state,last_error,exe_rel,proton,launch_args,last_played_utc,playtime_sec,launch_json)
+                VALUES($id,$slug,$name,$ver,$path,$at,$auto,$state,$err,$exe,$proton,$args,$played,$playtime,$launch)
                 ON CONFLICT(post_id) DO UPDATE SET slug=excluded.slug,name=excluded.name,installed_version=excluded.installed_version,install_path=excluded.install_path,
                   installed_utc=excluded.installed_utc,auto_update=excluded.auto_update,state=excluded.state,last_error=excluded.last_error,
-                  exe_rel=excluded.exe_rel,proton=excluded.proton,launch_args=excluded.launch_args,last_played_utc=excluded.last_played_utc,playtime_sec=excluded.playtime_sec
+                  exe_rel=excluded.exe_rel,proton=excluded.proton,launch_args=excluded.launch_args,last_played_utc=excluded.last_played_utc,playtime_sec=excluded.playtime_sec,
+                  launch_json=excluded.launch_json
                 """,
                 null,
                 ("$id", g.PostId),
@@ -214,7 +219,13 @@ public sealed class Database : IDisposable
                 ("$proton", g.ProtonPath),
                 ("$args", g.LaunchArgs),
                 ("$played", g.LastPlayedUtc is { } lp ? Iso(lp) : null),
-                ("$playtime", g.PlaytimeSeconds)
+                ("$playtime", g.PlaytimeSeconds),
+                (
+                    "$launch",
+                    g.Launch is { IsEmpty: false }
+                        ? System.Text.Json.JsonSerializer.Serialize(g.Launch)
+                        : null
+                )
             );
     }
 
@@ -264,8 +275,21 @@ public sealed class Database : IDisposable
             Str(r, "last_played_utc") is { } lp
                 ? DateTime.Parse(lp, null, System.Globalization.DateTimeStyles.RoundtripKind)
                 : null,
-            r.GetInt64(r.GetOrdinal("playtime_sec"))
+            r.GetInt64(r.GetOrdinal("playtime_sec")),
+            Str(r, "launch_json") is { } lj ? ParseLaunch(lj) : null
         );
+
+    private static LaunchOptions? ParseLaunch(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<LaunchOptions>(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null; // hand-edited or from a newer build: inherit the defaults rather than refuse to load
+        }
+    }
 
     // ---- events / kv ----
 

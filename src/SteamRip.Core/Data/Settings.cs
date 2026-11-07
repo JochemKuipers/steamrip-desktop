@@ -22,6 +22,9 @@ public sealed class Settings
 
     /// <summary>Proton build dir used for new games; empty = first one <see cref="Launch.ProtonLocator"/> finds (umu's default if none).</summary>
     public string DefaultProtonPath { get; set; } = "";
+
+    /// <summary>Launch tweaks every game inherits unless it overrides them. Nested on purpose: the same record is stored per game.</summary>
+    public Launch.LaunchOptions DefaultLaunch { get; set; } = Launch.LaunchOptions.AppDefaults;
     public string FlareSolverrUrl { get; set; } = "http://localhost:8191";
     public int CheckIntervalMinutes { get; set; } = 60;
     public bool AutoUpdatesPaused { get; set; }

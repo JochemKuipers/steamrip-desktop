@@ -89,13 +89,20 @@ public sealed class UpdateService : IAsyncDisposable
                 exe,
                 proton,
                 g.LaunchArgs,
-                post?.SteamAppId
+                post?.SteamAppId,
+                EffectiveLaunch(g)
             )
         );
         _db.UpsertInstall((_db.GetInstall(postId) ?? g) with { LastPlayedUtc = DateTime.UtcNow });
         _db.LogEvent("play", g.Name, postId);
         JobsChanged?.Invoke();
     }
+
+    /// <summary>Game override → user defaults → app defaults, so nothing that matters is null.</summary>
+    public LaunchOptions EffectiveLaunch(InstalledGame g) =>
+        (g.Launch ?? new LaunchOptions())
+            .MergeOver(_settings.DefaultLaunch)
+            .MergeOver(LaunchOptions.AppDefaults);
 
     private void OnGameExited(long postId, TimeSpan played, int code)
     {

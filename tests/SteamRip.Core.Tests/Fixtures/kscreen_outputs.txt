@@ -1,0 +1,94 @@
+Output: 1 HDMI-A-2 3cb7bd2e-48da-4bcc-990a-5b85480df067
+	enabled
+	connected
+	priority 3
+	HDMI
+	replication source:0
+	Modes:  1:1920x1080@60.00*!  2:1920x1080@59.94  3:1920x1080@50.00  4:1920x1080@24.00  5:1920x1080@23.98  6:2880x576@50.00  7:2880x576@50.00  8:2880x480@60.00  9:2880x480@60.00  10:2880x480@59.94  11:2880x480@59.94  12:1280x720@60.00  13:1280x720@60.00  14:1280x720@59.94  15:1280x720@50.00  16:1280x720@50.00  17:1440x576@50.00  18:1440x576@50.00  19:1440x480@60.00  20:1440x480@60.00  21:1440x480@59.94  22:1440x480@59.94  23:720x576@50.00  24:720x576@50.00  25:720x480@60.00  26:720x480@60.00  27:720x480@59.94  28:720x480@59.94  29:720x480@59.94  30:640x480@60.00  31:640x480@59.94  32:640x480@59.94 
+	Custom modes: None
+	Geometry: 5360,1440 1920x1080
+	Scale: 1
+	Rotation: 1
+	Overscan: 0
+	Vrr: incapable
+	RgbRange: Automatic
+	HDR: incapable
+	Wide Color Gamut: incapable
+	ICC profile: none
+	Color profile source: sRGB
+	Color power preference: prefer efficiency and performance
+	Brightness control: supported, set to 100% and dimming to 100%
+	Color resolution: automatic (10), range: [8; 16] bits per color
+	Allow EDR: unsupported
+	Sharpness control: unsupported
+	Automatic brightness: unsupported
+	Auto Rotate Policy: incapable
+	Adaptive backlight modulation: unsupported
+Output: 2 DP-2 8d3ff711-a04f-4c14-b56f-5deecca95c69
+	enabled
+	connected
+	priority 2
+	DisplayPort
+	replication source:0
+	Modes:  33:1920x1080@60.00!  34:1920x1080@144.00*  35:1920x1080@120.00  36:1920x1080@119.88  37:1920x1080@120.00  38:1920x1080@100.00  39:1920x1080@60.00  40:1920x1080@59.94  41:1920x1080@50.00  42:1280x1024@75.03  43:1280x1024@60.02  44:1280x720@60.00  45:1280x720@59.94  46:1280x720@50.00  47:1024x768@119.93  48:1024x768@99.99  49:1024x768@75.03  50:1024x768@70.07  51:1024x768@60.00  52:832x624@74.55  53:800x600@119.93  54:800x600@99.86  55:800x600@75.00  56:800x600@72.19  57:800x600@60.32  58:800x600@56.25  59:720x576@50.00  60:720x576@50.00  61:720x480@60.00  62:720x480@60.00  63:720x480@59.94  64:720x480@59.94  65:640x480@119.80  66:640x480@99.82  67:640x480@75.00  68:640x480@72.81  69:640x480@66.67  70:640x480@60.00  71:640x480@59.94  72:640x480@59.94 
+	Custom modes: None
+	Geometry: 3440,360 1920x1080
+	Scale: 1
+	Rotation: 1
+	Overscan: 0
+	Vrr: Automatic
+	RgbRange: Automatic
+	HDR: enabled
+		SDR brightness: 500 nits
+		SDR gamut wideness: 0%
+		Peak brightness: 418 nits, overridden with: 750 nits
+		Max average brightness: 418 nits
+		Min brightness: 0 nits
+		HDR color profile source: EDID
+		HDR ICC profile: none
+	Wide Color Gamut: enabled
+	ICC profile: none
+	Color profile source: sRGB
+	Color power preference: prefer accuracy
+	Brightness control: supported, set to 100% and dimming to 100%
+	DDC/CI: allowed
+	Color resolution: automatic (16), range: [8; 16] bits per color
+	Allow EDR: unsupported
+	Sharpness control: unsupported
+	Automatic brightness: unsupported
+	Auto Rotate Policy: incapable
+	Adaptive backlight modulation: unsupported
+Output: 3 DP-1 d6df7a84-0df9-49f2-bbf6-df961f01fe2d
+	enabled
+	connected
+	priority 1
+	DisplayPort
+	replication source:0
+	Modes:  73:3440x1440@59.97!  74:3440x1440@164.90*  75:3440x1440@99.98  76:2560x1440@143.97  77:2560x1440@120.00  78:2560x1440@59.95  79:1920x1080@143.85  80:1920x1080@120.00  81:1920x1080@119.88  82:1920x1080@60.00  83:1920x1080@60.00  84:1920x1080@59.94  85:1920x1080@50.00  86:1920x1080@30.00  87:1920x1080@29.97  88:1920x1080@25.00  89:1920x1080@24.00  90:1920x1080@23.98  91:1600x900@60.00  92:1280x1024@75.03  93:1280x1024@60.02  94:1152x864@75.00  95:1280x720@60.00  96:1280x720@59.94  97:1280x720@50.00  98:1024x768@75.03  99:1024x768@60.00  100:800x600@75.00  101:800x600@60.32  102:720x576@50.00  103:720x480@60.00  104:720x480@60.00  105:720x480@59.94  106:720x480@59.94  107:640x480@75.00  108:640x480@60.00  109:640x480@59.94  110:640x480@59.94 
+	Custom modes: None
+	Geometry: 0,0 3440x1440
+	Scale: 1
+	Rotation: 1
+	Overscan: 0
+	Vrr: Automatic
+	RgbRange: Automatic
+	HDR: enabled
+		SDR brightness: 300 nits
+		SDR gamut wideness: 0%
+		Peak brightness: 465 nits
+		Max average brightness: 277 nits
+		Min brightness: 0.0003 nits
+		HDR color profile source: EDID
+		HDR ICC profile: none
+	Wide Color Gamut: enabled
+	ICC profile: none
+	Color profile source: EDID
+	Color power preference: prefer accuracy
+	Brightness control: supported, set to 100% and dimming to 100%
+	DDC/CI: allowed
+	Color resolution: automatic (16), range: [8; 16] bits per color
+	Allow EDR: unsupported
+	Sharpness control: unsupported
+	Automatic brightness: unsupported
+	Auto Rotate Policy: incapable
+	Adaptive backlight modulation: unsupported
