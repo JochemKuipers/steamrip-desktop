@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using SteamRip.Core.Catalog;
 using SteamRip.Core.Downloads;
@@ -25,7 +26,7 @@ public class DownloaderTests : IAsyncLifetime
     {
         _payload = new byte[3 * 1024 * 1024 + 123];
         RandomNumberGenerator.Fill(_payload);
-        var port = Random.Shared.Next(20000, 40000);
+        var port = FreePort();
         _url = $"http://127.0.0.1:{port}/file.rar";
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
@@ -88,10 +89,18 @@ public class DownloaderTests : IAsyncLifetime
     public Task DisposeAsync()
     {
         _cts.Cancel();
-        _listener.Stop();
+        // Close() alone: it stops and releases the prefix. Stop() followed by Close() makes the managed
+        // HttpListener re-bind the port while the client connection still lingers → "Address already in use".
         _listener.Close();
         _cts.Dispose();
         return Task.CompletedTask;
+    }
+
+    private static int FreePort()
+    {
+        using var probe = new TcpListener(IPAddress.Loopback, 0);
+        probe.Start();
+        return ((IPEndPoint)probe.LocalEndpoint).Port;
     }
 
     private ResolvedDownload Src(string? sha = null) =>
