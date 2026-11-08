@@ -29,7 +29,11 @@
                     <CheckBox Content="{Binding WaylandLabel}" IsChecked="{Binding Wayland}" />
                     <CheckBox Content="{Binding FsrLabel}" IsChecked="{Binding Fsr}" />
                     <CheckBox Content="{Binding FsyncLabel}" IsChecked="{Binding Fsync}" />
-                    <CheckBox Content="{Binding ProtonLogLabel}" IsChecked="{Binding ProtonLog}" />
+                    <CheckBox
+                        Content="{Binding ProtonLogLabel}"
+                        IsChecked="{Binding ProtonLog}"
+                        ToolTip.Tip="PROTON_LOG=1: Wine writes its debug channels to a file in your home directory. Turn it on when a game does not start, then look for err:, 'unimplemented function' or 'Unhandled exception'."
+                    />
                 </UniformGrid>
                 <TextBlock
                     Classes="amber"

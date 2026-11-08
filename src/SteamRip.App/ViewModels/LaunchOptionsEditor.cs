@@ -172,7 +172,8 @@ public sealed partial class LaunchOptionsEditor(
     public string WaylandLabel => "Wine Wayland driver" + Default(d => d.Wayland);
     public string FsrLabel => "FSR 1 fullscreen upscaling" + Default(d => d.Fsr);
     public string FsyncLabel => "fsync" + Default(d => d.Fsync);
-    public string ProtonLogLabel => "Proton log" + Default(d => d.ProtonLog);
+    public string ProtonLogLabel =>
+        "Proton log (~/steam-<appid>-<build>.log)" + Default(d => d.ProtonLog);
 
     public string MangoHudConfigPlaceholder =>
         inherited()?.MangoHudConfig ?? "fps_only  (MANGOHUD_CONFIG, optional)";
