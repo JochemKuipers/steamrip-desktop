@@ -187,13 +187,44 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     {
         try
         {
+            // UseShellExecute cannot set Environment on Unix; spawn the opener ourselves and drop the
+            // throwaway XDG_* from make run-dev / F5 so Firefox/Dolphin use the real user profile.
+            if (OperatingSystem.IsLinux())
+            {
+                Process.Start(
+                    WithoutThrowawayXdg(
+                        new ProcessStartInfo("xdg-open", target) { UseShellExecute = false }
+                    )
+                );
+                return;
+            }
+            if (OperatingSystem.IsMacOS())
+            {
+                Process.Start(
+                    WithoutThrowawayXdg(
+                        new ProcessStartInfo("open", target) { UseShellExecute = false }
+                    )
+                );
+                return;
+            }
             Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
         }
         catch
         {
             if (OperatingSystem.IsLinux())
-                Process.Start("xdg-open", target);
+                Process.Start(
+                    WithoutThrowawayXdg(
+                        new ProcessStartInfo("xdg-open", target) { UseShellExecute = false }
+                    )
+                );
         }
+    }
+
+    private static ProcessStartInfo WithoutThrowawayXdg(ProcessStartInfo psi)
+    {
+        psi.Environment.Remove("XDG_CONFIG_HOME");
+        psi.Environment.Remove("XDG_DATA_HOME");
+        return psi;
     }
 }
 
