@@ -92,6 +92,8 @@ Owner: "add sort filters to the browse page. also look into if we can make some 
 
 Choice: `PostSort` (updated, added, name, size desc/asc) is applied in `Database.SearchPosts` as `ORDER BY`, never on the 150 rows in memory, because the window must follow the key ("largest 150", not "the 150 newest, sorted by size"). Size gets a numeric column parsed from the "Game Size" line. Genre = the post's WordPress `categories`; the site has exactly 20 categories and they are all genres, so no mapping table and no Steam/IGDB lookups. The migration that adds the tables also deletes `catalog_complete`, which the existing sync logic already treats as "do a full pass", so the backfill was one scheduled sync with zero user action.
 
-Rejected: Steam store genres via the Steam API (per-app requests for 5,000 games, rate limited, and the site's categories are good enough); WordPress `tags` (one per post, useless); sorting/filtering client-side.
+"Most popular" is the site's `/top-games/` ranking (post ids only, first 42 pages, once a day). It is the only steamrip.com HTML listing the app reads; the catalog itself stays REST.
+
+Rejected: Steam store genres via the Steam API (per-app requests for 5,000 games, rate limited, and the site's categories are good enough); WordPress `tags` (one per post, useless); sorting/filtering client-side; popularity from Steam (`GetMostPlayedGames` is 100 games, 56 of which are on the site) or SteamSpy (`request=all` answered "Too many connections" on every try).
 
 Locks in: `PostSort` values are not persisted; category ids are the site's and may change meaning if the site re-tags, in which case the next full sync rewrites `post_categories`.

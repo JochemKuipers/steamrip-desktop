@@ -39,7 +39,7 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ```sh
 make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
 make build        # whole solution; analyzers on, warnings are errors
-make test         # 66 tests, ~1 s, no network
+make test         # 67 tests, ~1 s, no network
 make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
 make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
 make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails
@@ -92,7 +92,7 @@ A change to a resolver is not done until it has resolved and downloaded at least
 
 ## Things not to do
 
-- Do not scrape steamrip.com HTML for the catalog. The REST API (`/wp-json/wp/v2/posts`) is the source; HTML parsing is limited to the `shortc-button` anchors and the "Game Size" line inside `content.rendered`. See `docs/research.md`.
+- Do not scrape steamrip.com HTML for the catalog. The REST API (`/wp-json/wp/v2/posts`, `/categories`) is the source; HTML parsing is limited to the `shortc-button` anchors and the "Game Size" line inside `content.rendered`, plus the post ids on `/top-games/` (the site's popularity ranking, which REST does not expose; 42 pages, once a day). See `docs/research.md`.
 - Do not hammer the site. One request in flight, 1.5 s between REST pages, honour `Retry-After`; the site returns 429 after roughly 40 consecutive pages. A full sync is rare; incremental `orderby=modified` checks are the norm.
 - Do not route file bytes through FlareSolverr. It clears landing pages only; every download goes through `HttpClient` with `Range`.
 - Do not trust hoster-published hashes blindly. MegaDB's page hash does not match the file; the archive CRC test (`unrar t`) is the integrity check. BuzzHeavier's MD5/SHA-256 do match and are verified.
