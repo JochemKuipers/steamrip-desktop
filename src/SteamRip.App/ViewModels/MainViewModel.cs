@@ -145,6 +145,7 @@ public partial class MainViewModel : ObservableObject
                 ? $"Synced {Humanize(t)} · {_s.Updates.LastSyncStatus}"
             : _s.Updates.LastSyncStatus;
         Library.Refresh();
+        Browse.RefreshGenres();
         Browse.Refresh();
     }
 

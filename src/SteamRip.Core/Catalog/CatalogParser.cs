@@ -16,6 +16,44 @@ public static partial class CatalogParser
     [GeneratedRegex(@"Game Size:\s*</strong>\s*([0-9.,]+\s*[KMGT]B)", RegexOptions.IgnoreCase)]
     private static partial Regex GameSize();
 
+    [GeneratedRegex(@"^\s*([0-9]+(?:[.,][0-9]+)?)\s*([KMGT])B\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex SizeValue();
+
+    /// <summary>"12.3 GB" → bytes (decimal units, like the site); null when it does not look like a size.</summary>
+    public static long? ParseSize(string? sizeText)
+    {
+        if (sizeText is null || SizeValue().Match(sizeText) is not { Success: true } m)
+            return null;
+        var number = double.Parse(
+            m.Groups[1].Value.Replace(',', '.'),
+            System.Globalization.CultureInfo.InvariantCulture
+        );
+        var scale = char.ToUpperInvariant(m.Groups[2].Value[0]) switch
+        {
+            'K' => 1e3,
+            'M' => 1e6,
+            'G' => 1e9,
+            _ => 1e12,
+        };
+        return (long)Math.Round(number * scale);
+    }
+
+    /// <summary><c>/wp/v2/categories</c> JSON array → categories.</summary>
+    public static IReadOnlyList<Category> ParseCategories(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return
+        [
+            .. doc
+                .RootElement.EnumerateArray()
+                .Select(c => new Category(
+                    c.GetProperty("id").GetInt64(),
+                    WebUtility.HtmlDecode(c.GetProperty("name").GetString() ?? ""),
+                    c.TryGetProperty("count", out var n) ? n.GetInt32() : 0
+                )),
+        ];
+    }
+
     public static IReadOnlyList<CatalogPost> Parse(string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -67,6 +105,15 @@ public static partial class CatalogParser
         var size = GameSize().Match(content) is { Success: true } gs
             ? gs.Groups[1].Value.Trim()
             : null;
+        IReadOnlyList<long> categories =
+            p.TryGetProperty("categories", out var cats) && cats.ValueKind == JsonValueKind.Array
+                ?
+                [
+                    .. cats.EnumerateArray()
+                        .Where(id => id.TryGetInt64(out _))
+                        .Select(id => id.GetInt64()),
+                ]
+                : [];
 
         return new CatalogPost(
             idEl.GetInt64(),
@@ -80,7 +127,9 @@ public static partial class CatalogParser
             ParseUtc(p, "modified_gmt", "modified"),
             ParseUtc(p, "date_gmt", "date"),
             size,
-            mirrors
+            mirrors,
+            ParseSize(size),
+            categories
         );
     }
 

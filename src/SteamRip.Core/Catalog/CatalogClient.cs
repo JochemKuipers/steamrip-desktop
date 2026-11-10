@@ -10,7 +10,7 @@ public sealed class CatalogClient(
     ILogger<CatalogClient>? logger = null
 )
 {
-    private const string Fields = "id,slug,link,title,modified_gmt,date_gmt,acf,content";
+    private const string Fields = "id,slug,link,title,modified_gmt,date_gmt,acf,content,categories";
     private readonly ILogger _log = logger ?? NullLogger<CatalogClient>.Instance;
 
     public async Task<IReadOnlyList<CatalogPost>> GetPageAsync(
@@ -59,6 +59,19 @@ public sealed class CatalogClient(
             );
             return posts;
         }
+    }
+
+    /// <summary>All categories (the site has ~20, used as genres). One request.</summary>
+    public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default)
+    {
+        using var resp = await http.GetAsync(
+            $"{baseUrl}/wp-json/wp/v2/categories?per_page=100&_fields=id,name,count",
+            ct
+        );
+        resp.EnsureSuccessStatusCode();
+        var cats = CatalogParser.ParseCategories(await resp.Content.ReadAsStringAsync(ct));
+        _log.LogInformation("Categories: {Count}", cats.Count);
+        return cats;
     }
 
     /// <summary>Yields posts modified after <paramref name="since"/> (exclusive), stopping at the first older page. One request per 100 posts.</summary>

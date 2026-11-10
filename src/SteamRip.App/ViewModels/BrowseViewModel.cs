@@ -10,6 +10,7 @@ namespace SteamRip.App.ViewModels;
 public partial class BrowseViewModel : ObservableObject
 {
     private readonly AppServices _s;
+    private readonly bool _ready;
 
     [ObservableProperty]
     public partial string Query { get; set; } = "";
@@ -18,17 +19,71 @@ public partial class BrowseViewModel : ObservableObject
     public partial string Summary { get; set; } = "";
     public ObservableCollection<BrowseItem> Items { get; } = [];
 
+    public IReadOnlyList<SortOption> Sorts { get; } =
+    [
+        new(PostSort.Updated, "Recently updated", "most recently updated"),
+        new(PostSort.Added, "Recently added", "most recently added"),
+        new(PostSort.Name, "Name A–Z", "first by name"),
+        new(PostSort.SizeDesc, "Largest first", "largest"),
+        new(PostSort.SizeAsc, "Smallest first", "smallest"),
+    ];
+
+    [ObservableProperty]
+    public partial SortOption Sort { get; set; }
+
+    /// <summary>"All genres" (Id 0) followed by the site's categories, largest first.</summary>
+    public ObservableCollection<Category> Genres { get; } = [];
+
+    [ObservableProperty]
+    public partial Category Genre { get; set; }
+
+    private static readonly Category AllGenres = new(0, "All genres", 0);
+    private const int Limit = 150;
+
     public BrowseViewModel(AppServices s)
     {
         _s = s;
+        Sort = Sorts[0];
+        Genre = AllGenres;
+        RefreshGenres();
+        _ready = true;
         Refresh();
     }
 
     partial void OnQueryChanged(string value) => Refresh();
 
+    partial void OnSortChanged(SortOption value)
+    {
+        if (_ready)
+            Refresh();
+    }
+
+    partial void OnGenreChanged(Category value)
+    {
+        if (_ready)
+            Refresh();
+    }
+
+    /// <summary>Re-reads the category list after a sync; keeps the current choice when it still exists.</summary>
+    public void RefreshGenres()
+    {
+        var current = Genre.Id;
+        var fresh = _s.Db.GetCategories().Where(c => c.Name != "Uncategorized").ToList();
+        if (
+            Genres.Count == fresh.Count + 1
+            && fresh.Select(c => c.Id).SequenceEqual(Genres.Skip(1).Select(c => c.Id))
+        )
+            return;
+        Genres.Clear();
+        Genres.Add(AllGenres);
+        foreach (var c in fresh)
+            Genres.Add(c);
+        Genre = Genres.FirstOrDefault(c => c.Id == current) ?? AllGenres;
+    }
+
     public void Refresh()
     {
-        var posts = _s.Db.SearchPosts(Query, 150);
+        var posts = _s.Db.SearchPosts(Query, Sort.Sort, Genre.Id == 0 ? null : Genre.Id, Limit);
         var installed = _s.Db.GetInstalls().ToDictionary(g => g.PostId);
         Items.Clear();
         foreach (var p in posts)
@@ -42,12 +97,18 @@ public partial class BrowseViewModel : ObservableObject
                 )
             );
         var total = _s.Db.PostCount();
+        var filtered = !string.IsNullOrWhiteSpace(Query) || Genre.Id != 0;
+        var genreNote =
+            Genre.Id != 0 && !_s.Db.HasPostCategories()
+                ? " · genres are being filled in by the running sync"
+                : "";
         Summary =
             total == 0
                 ? "No catalog yet — the first sync runs a few seconds after start, or press Sync now."
-            : string.IsNullOrWhiteSpace(Query)
-                ? $"{total:N0} games · showing the {Items.Count} most recently updated"
-            : $"{Items.Count} match{(Items.Count == 1 ? "" : "es")} of {total:N0}";
+            : !filtered ? $"{total:N0} games · showing the {Items.Count} {Sort.Summary}"
+            : Items.Count >= Limit
+                ? $"Showing the {Limit} {Sort.Summary} matches of {total:N0}{genreNote}"
+            : $"{Items.Count} match{(Items.Count == 1 ? "" : "es")} of {total:N0}{genreNote}";
     }
 
     public void Install(BrowseItem item)
@@ -62,6 +123,9 @@ public partial class BrowseViewModel : ObservableObject
     [RelayCommand]
     private async Task FullSync() => await _s.Updates.SyncCatalogAsync(full: true);
 }
+
+/// <summary>One entry of the sort dropdown; <see cref="Summary"/> completes "showing the 150 …".</summary>
+public sealed record SortOption(PostSort Sort, string Label, string Summary);
 
 public sealed partial class BrowseItem(
     BrowseViewModel owner,

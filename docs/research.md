@@ -13,10 +13,11 @@ Everything here was verified live on Nov 6 2026 from a residential IP (CachyOS b
 ### Catalog sources, cheapest first
 
 1. **WP REST API** — the one we use.
-   `GET /wp-json/wp/v2/posts?per_page=100&page=N&orderby=modified&order=desc&_fields=id,slug,link,title,modified_gmt,date_gmt,acf,content`
+   `GET /wp-json/wp/v2/posts?per_page=100&page=N&orderby=modified&order=desc&_fields=id,slug,link,title,modified_gmt,date_gmt,acf,content,categories`
    - `title.rendered` — `"Game Name Free Download (v1.2.3)"`; version in the trailing parentheses, free-form (`(v1.3.1)`, `(Build 12903118)`, `(v1.4.0.27939 + Co-op)`, `(v98314+1943)`).
    - `acf` (Advanced Custom Fields) — `steam_app_id`, `tagmetafield` (e.g. `"Build 26315250"`, the Steam build id), `updated`, `release_date`. Structured and far more reliable than the title.
    - `content.rendered` — the download buttons as `<a class="shortc-button" href="//bzzhr.to/…">`, a GAME INFO block (`Game Size: 12.3 GB`, `Version : …`), system requirements. We only parse the `shortc-button` anchors and the Game Size line.
+   - `categories` — ids into `/wp-json/wp/v2/categories` (20 entries, all genres: Action 2743, Indie 2705, Adventure 2552, Simulation, Role-playing Game, Strategy, Horror, Anime, Multiplayer, Shooters, Open World, Building, Survival, Sports, Racing, Sci-fi, First-person Shooter, Virtual Reality, Nudity, Uncategorized; counts Nov 10 2026). That endpoint needs `Accept: application/json` next to the browser UA or Cloudflare serves a challenge page (403). `tags` are per-game (about one per post, nearly all unique) and useless as a filter.
    - `modified_gmt` bumps on any edit including cosmetic ones; pair it with a build/version comparison before calling something an update.
    - **Posts are updated in place**: same id, same URL, new title/`modified`/`acf.tagmetafield`. Match library entries on post id, never on title.
 2. **Post sitemap** `/wp-sitemap.xml` → `wp-sitemap-posts-post-{1..3}.xml` with `<lastmod>` per game. ~125 KB for whole-catalog change detection. Not used yet; a cheap fallback if REST is ever disabled.

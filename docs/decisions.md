@@ -85,3 +85,13 @@ Choice: `Settings.DefaultProtonPath` defaults to the keyword `GE-Proton`, which 
 Rejected: shipping our own umu `PROTONPATH` default of `UMU-Proton` (too old); checking GitHub on every launch (one check per 6 h, offline uses what is installed); a generic "Proton from any GitHub repo" feature (one hard-coded mirror, one archive layout, `// ponytail`).
 
 Locks in: `GE-Proton` and `DW-Proton` are stored verbatim in `settings.json` and `installs.proton`; they are identifiers, do not rename them.
+
+## D16 — Genres are the site's WordPress categories; sort happens in SQL (Nov 10 2026)
+
+Owner: "add sort filters to the browse page. also look into if we can make some kind of genre filter".
+
+Choice: `PostSort` (updated, added, name, size desc/asc) is applied in `Database.SearchPosts` as `ORDER BY`, never on the 150 rows in memory, because the window must follow the key ("largest 150", not "the 150 newest, sorted by size"). Size gets a numeric column parsed from the "Game Size" line. Genre = the post's WordPress `categories`; the site has exactly 20 categories and they are all genres, so no mapping table and no Steam/IGDB lookups. The migration that adds the tables also deletes `catalog_complete`, which the existing sync logic already treats as "do a full pass", so the backfill was one scheduled sync with zero user action.
+
+Rejected: Steam store genres via the Steam API (per-app requests for 5,000 games, rate limited, and the site's categories are good enough); WordPress `tags` (one per post, useless); sorting/filtering client-side.
+
+Locks in: `PostSort` values are not persisted; category ids are the site's and may change meaning if the site re-tags, in which case the next full sync rewrites `post_categories`.

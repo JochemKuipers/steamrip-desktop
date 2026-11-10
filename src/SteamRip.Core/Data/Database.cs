@@ -82,7 +82,22 @@ public sealed class Database : IDisposable
             """,
         // 3: per-game launch tweaks (LaunchOptions as JSON; NULL = inherit the defaults)
         "ALTER TABLE installs ADD COLUMN launch_json TEXT;",
+        // 4: numeric size for sorting (backfilled from size_text right after this migration, see Migrate)
+        """
+            ALTER TABLE posts ADD COLUMN size_bytes INTEGER;
+            CREATE INDEX posts_size ON posts(size_bytes);
+            """,
+        // 5: WordPress categories = genres. Clearing catalog_complete makes the next sync a full one so every post gets its categories.
+        """
+            CREATE TABLE categories(id INTEGER PRIMARY KEY, name TEXT NOT NULL, count INTEGER NOT NULL);
+            CREATE TABLE post_categories(post_id INTEGER NOT NULL, category_id INTEGER NOT NULL, PRIMARY KEY(post_id, category_id));
+            CREATE INDEX post_categories_cat ON post_categories(category_id);
+            DELETE FROM kv WHERE key='catalog_complete';
+            """,
     ];
+
+    /// <summary>Set by <see cref="Migrate"/> when a migration needs C# work afterwards (e.g. 4: parse size_text into size_bytes).</summary>
+    private readonly HashSet<int> _applied = [];
 
     private void Migrate()
     {
@@ -104,6 +119,29 @@ public sealed class Database : IDisposable
                 ("$t", Now())
             );
             tx.Commit();
+            _applied.Add(v + 1);
+        }
+        if (_applied.Contains(4))
+            BackfillSizes();
+    }
+
+    private void BackfillSizes()
+    {
+        var rows = Query(
+            "SELECT id, size_text FROM posts WHERE size_text IS NOT NULL",
+            r => (Id: r.GetInt64(0), Size: r.GetString(1))
+        );
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            foreach (var (id, text) in rows)
+                Exec(
+                    "UPDATE posts SET size_bytes=$b WHERE id=$id",
+                    tx,
+                    ("$b", CatalogParser.ParseSize(text)),
+                    ("$id", id)
+                );
+            tx.Commit();
         }
     }
 
@@ -111,17 +149,18 @@ public sealed class Database : IDisposable
 
     public void UpsertPosts(IEnumerable<CatalogPost> posts)
     {
+        var list = posts as IReadOnlyCollection<CatalogPost> ?? [.. posts];
         lock (_lock)
         {
             using var tx = _db.BeginTransaction();
-            foreach (var p in posts)
+            foreach (var p in list)
                 Exec(
                     """
-                    INSERT INTO posts(id,slug,url,title,name,title_version,build,steam_app_id,modified_utc,published_utc,size_text,mirrors_json,seen_utc)
-                    VALUES($id,$slug,$url,$title,$name,$tv,$build,$app,$mod,$pub,$size,$mirrors,$seen)
+                    INSERT INTO posts(id,slug,url,title,name,title_version,build,steam_app_id,modified_utc,published_utc,size_text,mirrors_json,seen_utc,size_bytes)
+                    VALUES($id,$slug,$url,$title,$name,$tv,$build,$app,$mod,$pub,$size,$mirrors,$seen,$bytes)
                     ON CONFLICT(id) DO UPDATE SET slug=excluded.slug,url=excluded.url,title=excluded.title,name=excluded.name,title_version=excluded.title_version,
                       build=excluded.build,steam_app_id=excluded.steam_app_id,modified_utc=excluded.modified_utc,published_utc=excluded.published_utc,
-                      size_text=excluded.size_text,mirrors_json=excluded.mirrors_json
+                      size_text=excluded.size_text,mirrors_json=excluded.mirrors_json,size_bytes=excluded.size_bytes
                     """,
                     tx,
                     ("$id", p.Id),
@@ -136,24 +175,89 @@ public sealed class Database : IDisposable
                     ("$pub", Iso(p.PublishedUtc)),
                     ("$size", p.SizeText),
                     ("$mirrors", System.Text.Json.JsonSerializer.Serialize(p.Mirrors)),
-                    ("$seen", Now())
+                    ("$seen", Now()),
+                    ("$bytes", p.SizeBytes ?? CatalogParser.ParseSize(p.SizeText))
+                );
+            // A post without category ids (old cache, old fixture) must not wipe what a full sync wrote.
+            foreach (var p in list.Where(p => p.CategoryIds.Count > 0))
+            {
+                Exec("DELETE FROM post_categories WHERE post_id=$id", tx, ("$id", p.Id));
+                foreach (var c in p.CategoryIds)
+                    Exec(
+                        "INSERT OR IGNORE INTO post_categories(post_id, category_id) VALUES($p,$c)",
+                        tx,
+                        ("$p", p.Id),
+                        ("$c", c)
+                    );
+            }
+            tx.Commit();
+        }
+    }
+
+    public void UpsertCategories(IEnumerable<Category> categories)
+    {
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            foreach (var c in categories)
+                Exec(
+                    "INSERT INTO categories(id,name,count) VALUES($id,$n,$c) ON CONFLICT(id) DO UPDATE SET name=excluded.name,count=excluded.count",
+                    tx,
+                    ("$id", c.Id),
+                    ("$n", c.Name),
+                    ("$c", c.Count)
                 );
             tx.Commit();
         }
     }
 
+    /// <summary>Categories by size, largest first.</summary>
+    public IReadOnlyList<Category> GetCategories() =>
+        Query(
+            "SELECT id, name, count FROM categories ORDER BY count DESC, name",
+            r => new Category(r.GetInt64(0), r.GetString(1), r.GetInt32(2))
+        );
+
+    /// <summary>True once at least one post carries categories, i.e. the backfilling full sync has written something.</summary>
+    public bool HasPostCategories() => Scalar("SELECT 1 FROM post_categories LIMIT 1") is not null;
+
     public CatalogPost? GetPost(long id) =>
         Query("SELECT * FROM posts WHERE id=$id", ReadPost, ("$id", id)).FirstOrDefault();
 
-    public IReadOnlyList<CatalogPost> SearchPosts(string? text, int limit = 200)
+    public IReadOnlyList<CatalogPost> SearchPosts(
+        string? text,
+        PostSort sort = PostSort.Updated,
+        long? categoryId = null,
+        int limit = 200
+    )
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return Query($"SELECT * FROM posts ORDER BY modified_utc DESC LIMIT {limit}", ReadPost);
-        return Query(
-            $"SELECT * FROM posts WHERE name LIKE $q COLLATE NOCASE ORDER BY modified_utc DESC LIMIT {limit}",
-            ReadPost,
-            ("$q", "%" + text.Trim() + "%")
-        );
+        var where = new List<string>();
+        var args = new List<(string, object?)>();
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            where.Add("p.name LIKE $q COLLATE NOCASE");
+            args.Add(("$q", "%" + text.Trim() + "%"));
+        }
+        if (categoryId is { } cat)
+        {
+            where.Add(
+                "EXISTS (SELECT 1 FROM post_categories pc WHERE pc.post_id=p.id AND pc.category_id=$cat)"
+            );
+            args.Add(("$cat", cat));
+        }
+        var order = sort switch
+        {
+            PostSort.Added => "p.published_utc DESC",
+            PostSort.Name => "p.name COLLATE NOCASE ASC",
+            PostSort.SizeDesc => "p.size_bytes DESC NULLS LAST, p.modified_utc DESC",
+            PostSort.SizeAsc => "p.size_bytes ASC NULLS LAST, p.modified_utc DESC",
+            _ => "p.modified_utc DESC",
+        };
+        var sql =
+            "SELECT p.* FROM posts p"
+            + (where.Count > 0 ? " WHERE " + string.Join(" AND ", where) : "")
+            + $" ORDER BY {order} LIMIT {limit}";
+        return Query(sql, ReadPost, [.. args]);
     }
 
     public int PostCount() => (int)(long)(Scalar("SELECT COUNT(*) FROM posts") ?? 0L);
@@ -188,7 +292,8 @@ public sealed class Database : IDisposable
             Str(r, "size_text"),
             System.Text.Json.JsonSerializer.Deserialize<List<Mirror>>(
                 r.GetString(r.GetOrdinal("mirrors_json"))
-            ) ?? []
+            ) ?? [],
+            r.IsDBNull(r.GetOrdinal("size_bytes")) ? null : r.GetInt64(r.GetOrdinal("size_bytes"))
         );
 
     // ---- installs ----

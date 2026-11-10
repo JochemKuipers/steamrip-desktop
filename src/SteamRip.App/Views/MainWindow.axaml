@@ -342,12 +342,32 @@
                         <TextBlock Classes="h1" Text="Browse" />
                     </DockPanel>
                 </StackPanel>
-                <TextBox
-                    DockPanel.Dock="Top"
-                    PlaceholderText="Search by name…"
-                    Text="{Binding Query}"
-                    Margin="0,0,0,8"
-                />
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <StackPanel
+                        DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        Margin="8,0,0,0"
+                    >
+                        <ComboBox
+                            ItemsSource="{Binding Genres}"
+                            SelectedItem="{Binding Genre}"
+                            DisplayMemberBinding="{Binding Name}"
+                            MinWidth="170"
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="Genre (the site's categories)"
+                        />
+                        <ComboBox
+                            ItemsSource="{Binding Sorts}"
+                            SelectedItem="{Binding Sort}"
+                            DisplayMemberBinding="{Binding Label}"
+                            MinWidth="170"
+                            VerticalAlignment="Center"
+                            ToolTip.Tip="Sort order"
+                        />
+                    </StackPanel>
+                    <TextBox PlaceholderText="Search by name…" Text="{Binding Query}" />
+                </DockPanel>
                 <TextBlock
                     DockPanel.Dock="Top"
                     Classes="muted"

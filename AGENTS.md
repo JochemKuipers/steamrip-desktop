@@ -39,7 +39,7 @@ Keep this shape. Do not add a project per hoster, a plugin system, DI container,
 ```sh
 make setup        # once per clone: dotnet tools (CSharpier, ReSharper CLI), git hooks, restore
 make build        # whole solution; analyzers on, warnings are errors
-make test         # 58 tests, ~1 s, no network
+make test         # 66 tests, ~1 s, no network
 make run-dev      # app against the throwaway profile (/tmp/sr-cfg), --show --verbose
 make check        # all gates: format-check, clean build, tests, ReSharper at WARNING+
 make inspect-all  # ReSharper at the highest level (every hint/suggestion); a report, never fails

@@ -166,6 +166,8 @@ public sealed class UpdateService : IAsyncDisposable
             // Until one full pass has finished, every sync is a full one (a 429 or crash mid-way must not leave holes in the catalog).
             var complete = _db.GetKv("catalog_complete") == "1";
             var since = full || !complete ? null : _db.NewestModified();
+            if (since is null || _db.GetCategories().Count == 0)
+                _db.UpsertCategories(await _catalog.GetCategoriesAsync(ct));
             var batch = new List<CatalogPost>();
             var newPosts = new List<CatalogPost>();
             var count = 0;

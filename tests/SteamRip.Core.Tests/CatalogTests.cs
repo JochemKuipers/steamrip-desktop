@@ -19,6 +19,79 @@ public class CatalogTests
         Assert.Equal(version, v);
     }
 
+    [Theory]
+    [InlineData("12.3 GB", 12_300_000_000L)]
+    [InlineData("750 MB", 750_000_000L)]
+    [InlineData("1,5 TB", 1_500_000_000_000L)]
+    [InlineData("900 KB", 900_000L)]
+    [InlineData("unknown", null)]
+    [InlineData(null, null)]
+    public void ParseSize_turns_the_game_size_line_into_bytes(string? text, long? bytes) =>
+        Assert.Equal(bytes, CatalogParser.ParseSize(text));
+
+    [Fact]
+    public void Posts_carry_category_ids_and_categories_fixture_parses()
+    {
+        var posts = CatalogParser.Parse(Fixture.Read("posts_page1.json"));
+        Assert.Equal([26, 27, 32, 45, 63], posts[0].CategoryIds);
+        Assert.All(posts, p => Assert.Equal(CatalogParser.ParseSize(p.SizeText), p.SizeBytes));
+
+        var cats = CatalogParser.ParseCategories(Fixture.Read("categories.json"));
+        Assert.Equal(20, cats.Count);
+        Assert.Contains(cats, c => c is { Id: 26, Name: "Action", Count: > 2000 });
+    }
+
+    [Fact]
+    public void Search_sorts_in_sql_and_filters_by_category()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            "sr-test-" + Guid.NewGuid().ToString("N") + ".db"
+        );
+        try
+        {
+            using var db = new Database(path);
+            var posts = CatalogParser.Parse(Fixture.Read("posts_page1.json"));
+            db.UpsertPosts(posts);
+            db.UpsertCategories(CatalogParser.ParseCategories(Fixture.Read("categories.json")));
+
+            var bySize = db.SearchPosts(null, PostSort.SizeDesc, limit: 5);
+            Assert.Equal(5, bySize.Count);
+            Assert.Equal(posts.Max(p => p.SizeBytes), bySize[0].SizeBytes);
+            Assert.True(
+                bySize
+                    .Select(p => p.SizeBytes!.Value)
+                    .SequenceEqual(bySize.Select(p => p.SizeBytes!.Value).OrderDescending())
+            );
+
+            var byName = db.SearchPosts(null, PostSort.Name, limit: 100)
+                .Select(p => p.Name)
+                .ToList();
+            Assert.Equal(byName.OrderBy(n => n, StringComparer.OrdinalIgnoreCase), byName);
+
+            var added = db.SearchPosts(null, PostSort.Added, limit: 1).Single();
+            Assert.Equal(posts.Max(p => p.PublishedUtc), added.PublishedUtc);
+
+            var horror = db.SearchPosts(null, categoryId: 32);
+            Assert.Equal(posts.Count(p => p.CategoryIds.Contains(32)), horror.Count);
+            Assert.All(
+                horror,
+                p => Assert.Contains(32, posts.Single(x => x.Id == p.Id).CategoryIds)
+            );
+            Assert.Empty(db.SearchPosts(null, categoryId: 999999));
+            Assert.True(db.HasPostCategories());
+            Assert.Equal("Action", db.GetCategories()[0].Name);
+
+            // A re-upsert of a post without category ids keeps what is there.
+            db.UpsertPosts([posts[0] with { CategoryIds = [] }]);
+            Assert.Contains(db.SearchPosts(null, categoryId: 32), p => p.Id == posts[0].Id);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Fact]
     public void Parses_rest_page_fixture()
     {
