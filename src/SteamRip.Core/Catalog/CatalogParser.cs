@@ -38,6 +38,13 @@ public static partial class CatalogParser
         return (long)Math.Round(number * scale);
     }
 
+    [GeneratedRegex(@"class=""post-item post-(\d+)\b")]
+    private static partial Regex TopGamesItem();
+
+    /// <summary>Post ids in rank order from one page of the site's <c>/top-games/</c> listing (its "most viewed" ranking, 24 per page).</summary>
+    public static IReadOnlyList<long> ParseTopGames(string html) =>
+        [.. TopGamesItem().Matches(html).Select(m => long.Parse(m.Groups[1].Value)).Distinct()];
+
     /// <summary><c>/wp/v2/categories</c> JSON array → categories.</summary>
     public static IReadOnlyList<Category> ParseCategories(string json)
     {

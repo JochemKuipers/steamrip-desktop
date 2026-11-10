@@ -42,6 +42,15 @@ public class CatalogTests
     }
 
     [Fact]
+    public void Top_games_page_yields_post_ids_in_rank_order()
+    {
+        var ids = CatalogParser.ParseTopGames(Fixture.Read("top_games_page1.html"));
+        Assert.Equal(24, ids.Count);
+        Assert.Equal([40820L, 1050L, 12806L, 2340L], ids.Take(4));
+        Assert.Empty(CatalogParser.ParseTopGames("<html><body>nothing</body></html>"));
+    }
+
+    [Fact]
     public void Search_sorts_in_sql_and_filters_by_category()
     {
         var path = Path.Combine(
@@ -68,6 +77,14 @@ public class CatalogTests
                 .Select(p => p.Name)
                 .ToList();
             Assert.Equal(byName.OrderBy(n => n, StringComparer.OrdinalIgnoreCase), byName);
+
+            db.SetPopularity([posts[5].Id, posts[2].Id]);
+            var popular = db.SearchPosts(null, PostSort.Popular, limit: 3);
+            Assert.Equal([posts[5].Id, posts[2].Id], popular.Take(2).Select(p => p.Id));
+            Assert.Equal(2, db.RankedPostCount());
+            db.SetPopularity([posts[7].Id]);
+            Assert.Equal(posts[7].Id, db.SearchPosts(null, PostSort.Popular, limit: 1).Single().Id);
+            Assert.Equal(1, db.RankedPostCount());
 
             var added = db.SearchPosts(null, PostSort.Added, limit: 1).Single();
             Assert.Equal(posts.Max(p => p.PublishedUtc), added.PublishedUtc);

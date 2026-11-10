@@ -61,6 +61,38 @@ public sealed class CatalogClient(
         }
     }
 
+    /// <summary>
+    /// The site's own popularity ranking: post ids from <c>/top-games/</c> (24 per page, "most viewed"), first
+    /// <paramref name="pages"/> pages, politeness delay between them. The REST API has nothing comparable.
+    /// </summary>
+    public async Task<IReadOnlyList<long>> GetTopGamesAsync(
+        int pages,
+        CancellationToken ct = default
+    )
+    {
+        var ids = new List<long>();
+        for (var page = 1; page <= pages; page++)
+        {
+            var url = page == 1 ? $"{baseUrl}/top-games/" : $"{baseUrl}/top-games/page/{page}/";
+            using var resp = await http.GetAsync(url, ct);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                break;
+            resp.EnsureSuccessStatusCode();
+            var found = CatalogParser.ParseTopGames(await resp.Content.ReadAsStringAsync(ct));
+            if (found.Count == 0)
+                break;
+            ids.AddRange(found.Where(id => !ids.Contains(id)));
+            if (page < pages)
+                await Task.Delay(1500, ct);
+        }
+        _log.LogInformation(
+            "Top games: {Count} ranked posts from {Pages} page(s)",
+            ids.Count,
+            pages
+        );
+        return ids;
+    }
+
     /// <summary>All categories (the site has ~20, used as genres). One request.</summary>
     public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken ct = default)
     {

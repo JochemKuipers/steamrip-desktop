@@ -94,6 +94,11 @@ public sealed class Database : IDisposable
             CREATE INDEX post_categories_cat ON post_categories(category_id);
             DELETE FROM kv WHERE key='catalog_complete';
             """,
+        // 6: rank in the site's /top-games/ listing (NULL = outside the fetched top)
+        """
+            ALTER TABLE posts ADD COLUMN popularity_rank INTEGER;
+            CREATE INDEX posts_popularity ON posts(popularity_rank);
+            """,
     ];
 
     /// <summary>Set by <see cref="Migrate"/> when a migration needs C# work afterwards (e.g. 4: parse size_text into size_bytes).</summary>
@@ -211,6 +216,27 @@ public sealed class Database : IDisposable
         }
     }
 
+    /// <summary>Replaces the popularity ranking: position in <paramref name="orderedIds"/> + 1, NULL for everything else.</summary>
+    public void SetPopularity(IReadOnlyList<long> orderedIds)
+    {
+        lock (_lock)
+        {
+            using var tx = _db.BeginTransaction();
+            Exec("UPDATE posts SET popularity_rank=NULL WHERE popularity_rank IS NOT NULL", tx);
+            for (var i = 0; i < orderedIds.Count; i++)
+                Exec(
+                    "UPDATE posts SET popularity_rank=$r WHERE id=$id",
+                    tx,
+                    ("$r", i + 1),
+                    ("$id", orderedIds[i])
+                );
+            tx.Commit();
+        }
+    }
+
+    public int RankedPostCount() =>
+        (int)(long)(Scalar("SELECT COUNT(*) FROM posts WHERE popularity_rank IS NOT NULL") ?? 0L);
+
     /// <summary>Categories by size, largest first.</summary>
     public IReadOnlyList<Category> GetCategories() =>
         Query(
@@ -247,6 +273,7 @@ public sealed class Database : IDisposable
         }
         var order = sort switch
         {
+            PostSort.Popular => "p.popularity_rank ASC NULLS LAST, p.modified_utc DESC",
             PostSort.Added => "p.published_utc DESC",
             PostSort.Name => "p.name COLLATE NOCASE ASC",
             PostSort.SizeDesc => "p.size_bytes DESC NULLS LAST, p.modified_utc DESC",

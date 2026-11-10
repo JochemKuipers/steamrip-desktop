@@ -34,6 +34,7 @@ public sealed record Category(long Id, string Name, int Count);
 public enum PostSort
 {
     Updated,
+    Popular,
     Added,
     Name,
     SizeDesc,

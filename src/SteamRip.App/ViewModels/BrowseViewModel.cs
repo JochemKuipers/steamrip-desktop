@@ -22,6 +22,7 @@ public partial class BrowseViewModel : ObservableObject
     public IReadOnlyList<SortOption> Sorts { get; } =
     [
         new(PostSort.Updated, "Recently updated", "most recently updated"),
+        new(PostSort.Popular, "Most popular", "most popular"),
         new(PostSort.Added, "Recently added", "most recently added"),
         new(PostSort.Name, "Name A–Z", "first by name"),
         new(PostSort.SizeDesc, "Largest first", "largest"),
@@ -99,13 +100,16 @@ public partial class BrowseViewModel : ObservableObject
         var total = _s.Db.PostCount();
         var filtered = !string.IsNullOrWhiteSpace(Query) || Genre.Id != 0;
         var genreNote =
-            Genre.Id != 0 && !_s.Db.HasPostCategories()
+            Genres.Count == 1 && _s.Updates.Syncing ? " · genres appear when this sync finishes"
+            : Genre.Id != 0 && !_s.Db.HasPostCategories()
                 ? " · genres are being filled in by the running sync"
-                : "";
+            : Sort.Sort == PostSort.Popular && _s.Db.RankedPostCount() == 0
+                ? " · popularity arrives with the next sync"
+            : "";
         Summary =
             total == 0
                 ? "No catalog yet — the first sync runs a few seconds after start, or press Sync now."
-            : !filtered ? $"{total:N0} games · showing the {Items.Count} {Sort.Summary}"
+            : !filtered ? $"{total:N0} games · showing the {Items.Count} {Sort.Summary}{genreNote}"
             : Items.Count >= Limit
                 ? $"Showing the {Limit} {Sort.Summary} matches of {total:N0}{genreNote}"
             : $"{Items.Count} match{(Items.Count == 1 ? "" : "es")} of {total:N0}{genreNote}";

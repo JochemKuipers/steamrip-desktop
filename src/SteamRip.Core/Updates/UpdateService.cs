@@ -60,6 +60,45 @@ public sealed class UpdateService : IAsyncDisposable
         _launcher.Exited += OnGameExited;
     }
 
+    /// <summary>Once a day, re-read the site's /top-games/ ranking (first <see cref="TopGamesPages"/> pages). A failure here never fails the sync.</summary>
+    private async Task RefreshPopularityAsync(CancellationToken ct)
+    {
+        const string key = "top_games_utc";
+        if (
+            _db.GetKv(key) is { } last
+            && DateTime.TryParse(
+                last,
+                null,
+                System.Globalization.DateTimeStyles.RoundtripKind,
+                out var at
+            )
+            && DateTime.UtcNow - at < TimeSpan.FromHours(24)
+            && _db.RankedPostCount() > 0
+        )
+            return;
+        try
+        {
+            var ids = await _catalog.GetTopGamesAsync(TopGamesPages, ct);
+            if (ids.Count == 0)
+                return;
+            _db.SetPopularity(ids);
+            _db.SetKv(key, DateTime.UtcNow.ToString("o"));
+            _log.LogInformation("Popularity ranking stored for {Count} posts", ids.Count);
+            SyncChanged?.Invoke();
+        }
+        catch (Exception e)
+            when (e is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            _log.LogWarning(
+                "Top games fetch failed: {Error}; keeping the previous ranking",
+                e.Message
+            );
+        }
+    }
+
+    /// <summary>42 pages × 24 = the top ~1,000; about a minute with the politeness delay, once a day.</summary>
+    private const int TopGamesPages = 42;
+
     // ---- play ----
 
     public async Task PlayAsync(long postId)
@@ -167,7 +206,10 @@ public sealed class UpdateService : IAsyncDisposable
             var complete = _db.GetKv("catalog_complete") == "1";
             var since = full || !complete ? null : _db.NewestModified();
             if (since is null || _db.GetCategories().Count == 0)
+            {
                 _db.UpsertCategories(await _catalog.GetCategoriesAsync(ct));
+                SyncChanged?.Invoke(); // the genre list can show up before the (long) full pass ends
+            }
             var batch = new List<CatalogPost>();
             var newPosts = new List<CatalogPost>();
             var count = 0;
@@ -203,6 +245,7 @@ public sealed class UpdateService : IAsyncDisposable
                 );
 
             CheckForUpdates();
+            await RefreshPopularityAsync(ct);
             return count;
         }
         catch (OperationCanceledException)
