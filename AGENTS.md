@@ -65,7 +65,7 @@ Rules of engagement:
 - Suppress a one-off ReSharper finding with `// ReSharper disable once <Id> -- <why>`; Roslyn with `[SuppressMessage(..., Justification = "...")]`. Both need the reason.
 - The pre-commit hook formats staged files and builds; the pre-push hook also runs the tests and ReSharper (~1 min). Skip with `--no-verify` only when you are about to fix it in the next commit.
 
-Use a throwaway profile when running the app during development so you never touch the owner's real library and DB: `make run-dev` (= `XDG_CONFIG_HOME=/tmp/sr-cfg dotnet run --project src/SteamRip.App -- --show --verbose`). Settings land in `/tmp/sr-cfg/steamrip-desktop/settings.json`; set `LibraryRoot` to e.g. `/tmp/sr-lib`. `make logs` / `make log-tail` / `make db` read that profile; `make dev-reset` wipes it.
+Use a throwaway profile when running the app during development so you never touch the owner's real library and DB: `make run-dev` (= `XDG_CONFIG_HOME=/tmp/sr-cfg dotnet run --project src/SteamRip.App -- --show --verbose`). Settings land in `/tmp/sr-cfg/steamrip-desktop/settings.json`; set `LibraryRoot` to e.g. `/tmp/sr-lib`. The F5 launch configurations in `.vscode/launch.json` set the same `XDG_CONFIG_HOME` (and `XDG_DATA_HOME=/tmp/sr-data` so game shortcuts land there too). A plain `dotnet run` without those variables runs against the owner's real profile; do not do that. `make logs` / `make log-tail` / `make db` read that profile; `make dev-reset` wipes it.
 
 ## How to verify your work
 

@@ -6,7 +6,14 @@
       "type": "dotnet",
       "request": "launch",
       "projectPath": "${workspaceFolder}/src/SteamRip.App/SteamRip.App.csproj",
-      "args": ["--show"]
+      "args": [
+        "--show",
+        "--verbose"
+      ],
+      "env": {
+        "XDG_CONFIG_HOME": "/tmp/sr-cfg",
+        "XDG_DATA_HOME": "/tmp/sr-data"
+      }
     },
     {
       "name": "ReSharper: .NET Core / .NET 5+ Executable",
@@ -14,8 +21,14 @@
       "request": "launch",
       "program": "${workspaceFolder}/src/SteamRip.App/bin/Debug/net10.0/linux-x64/steamrip-desktop.dll",
       "cwd": "${workspaceFolder}/src/SteamRip.App",
-      "args": ["--show"],
-      "env": {},
+      "args": [
+        "--show",
+        "--verbose"
+      ],
+      "env": {
+        "XDG_CONFIG_HOME": "/tmp/sr-cfg",
+        "XDG_DATA_HOME": "/tmp/sr-data"
+      },
       "preLaunchTask": "ReSharper: Build"
     },
     {
