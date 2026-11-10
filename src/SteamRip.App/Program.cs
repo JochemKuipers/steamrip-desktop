@@ -12,11 +12,8 @@ internal static class Program
         // "Global\" matters: without it .NET scopes a named mutex to the Unix session id (/tmp/.dotnet/shm/session<sid>/),
         // and KDE/GNOME start every .desktop launch through systemd --user in a session of its own, so each shortcut
         // click became a second tray icon. With the prefix the mutex lives in /tmp/.dotnet/shm/global/ for the whole user.
-        using var mutex = new Mutex(
-            true,
-            @"Global\steamrip-desktop-single-instance",
-            out var first
-        );
+        // The config dir is part of the name so a dev profile (XDG_CONFIG_HOME=/tmp/sr-cfg) runs next to the real app.
+        using var mutex = new Mutex(true, MutexName, out var first);
         if (!first)
         {
             Directory.CreateDirectory(Core.Data.Settings.DefaultDir);
@@ -28,6 +25,14 @@ internal static class Program
         }
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
+
+    private static string MutexName =>
+        @"Global\steamrip-desktop-"
+        + Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA1.HashData(
+                System.Text.Encoding.UTF8.GetBytes(Core.Data.Settings.DefaultDir)
+            )
+        )[..12];
 
     public static string ShowRequestPath => Path.Combine(Core.Data.Settings.DefaultDir, ".show");
     public static string PlayRequestPath => Path.Combine(Core.Data.Settings.DefaultDir, ".play");
