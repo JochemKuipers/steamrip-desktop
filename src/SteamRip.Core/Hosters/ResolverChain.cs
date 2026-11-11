@@ -7,7 +7,7 @@ namespace SteamRip.Core.Hosters;
 /// <summary>Tries a post's mirrors in preference order and returns the first that resolves; collects the failures so the UI can show why none worked.</summary>
 public sealed class ResolverChain(
     IEnumerable<IHostResolver> resolvers,
-    IReadOnlyList<Hoster>? order = null,
+    Func<IReadOnlyList<Hoster>>? order = null,
     ILogger<ResolverChain>? logger = null
 )
 {
@@ -22,24 +22,33 @@ public sealed class ResolverChain(
     private readonly Dictionary<Hoster, IHostResolver> _byHost = resolvers.ToDictionary(r =>
         r.Host
     );
-    private readonly IReadOnlyList<Hoster> _order = order ?? DefaultOrder;
+
+    // Read live so Settings → HosterOrder applies to the next job without a restart.
+    private readonly Func<IReadOnlyList<Hoster>> _order = order ?? (() => DefaultOrder);
     private readonly ILogger _log = logger ?? NullLogger<ResolverChain>.Instance;
 
     public IReadOnlyCollection<Hoster> Supported => _byHost.Keys;
+
+    private IReadOnlyList<Hoster> CurrentOrder()
+    {
+        var o = _order();
+        return o.Count > 0 ? o : DefaultOrder;
+    }
 
     public async Task<(ResolvedDownload? Result, IReadOnlyList<string> Errors)> ResolveAsync(
         IReadOnlyList<Mirror> mirrors,
         CancellationToken ct = default
     )
     {
+        var preference = CurrentOrder();
         var errors = new List<string>();
         _log.LogInformation(
             "Resolving: {Count} mirror(s) [{Hosts}], order [{Order}]",
             mirrors.Count,
             string.Join(", ", mirrors.Select(m => m.Host)),
-            string.Join(" → ", _order)
+            string.Join(" → ", preference)
         );
-        foreach (var host in _order)
+        foreach (var host in preference)
         {
             if (!_byHost.TryGetValue(host, out var resolver))
                 continue;

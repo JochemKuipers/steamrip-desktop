@@ -327,10 +327,6 @@ public sealed class AppServices : IAsyncDisposable
             Timeout = TimeSpan.FromSeconds(60),
         };
 
-        var order = settings
-            .HosterOrder.Select(h => Enum.TryParse<Hoster>(h, true, out var v) ? v : Hoster.Unknown)
-            .Where(h => h != Hoster.Unknown)
-            .ToList();
         var resolvers = new ResolverChain(
             [
                 new FileDitchResolver(solver, loggers.CreateLogger<FileDitchResolver>()),
@@ -338,7 +334,14 @@ public sealed class AppServices : IAsyncDisposable
                 new MegaDbResolver(logger: loggers.CreateLogger<MegaDbResolver>()),
                 new BuzzHeavierResolver(solver, loggers.CreateLogger<BuzzHeavierResolver>()),
             ],
-            order.Count > 0 ? order : null,
+            () =>
+                [
+                    .. settings
+                        .HosterOrder.Select(h =>
+                            Enum.TryParse<Hoster>(h, true, out var v) ? v : Hoster.Unknown
+                        )
+                        .Where(h => h != Hoster.Unknown),
+                ],
             loggers.CreateLogger<ResolverChain>()
         );
 
