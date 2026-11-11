@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -26,7 +27,7 @@ public static partial class CatalogParser
             return null;
         var number = double.Parse(
             m.Groups[1].Value.Replace(',', '.'),
-            System.Globalization.CultureInfo.InvariantCulture
+            CultureInfo.InvariantCulture
         );
         var scale = char.ToUpperInvariant(m.Groups[2].Value[0]) switch
         {
@@ -107,8 +108,13 @@ public static partial class CatalogParser
             var url = HosterDetector.Normalize(WebUtility.HtmlDecode(h.Groups[1].Value));
             if (mirrors.Any(x => x.Url == url))
                 continue;
-            mirrors.Add(new Mirror(HosterDetector.Detect(url), url));
+            var host = HosterDetector.Detect(url);
+            // FileCrypt is a CAPTCHA/ad wrapper around other hosts — drop it; every such post has another mirror.
+            if (host == Hoster.FileCrypt)
+                continue;
+            mirrors.Add(new Mirror(host, url));
         }
+
         var size = GameSize().Match(content) is { Success: true } gs
             ? gs.Groups[1].Value.Trim()
             : null;
@@ -148,9 +154,8 @@ public static partial class CatalogParser
                 && el.ValueKind == JsonValueKind.String
                 && DateTime.TryParse(
                     el.GetString(),
-                    null,
-                    System.Globalization.DateTimeStyles.AssumeUniversal
-                        | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
                     out var dt
                 )
             )

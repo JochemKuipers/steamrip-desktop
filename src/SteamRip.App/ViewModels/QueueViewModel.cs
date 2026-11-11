@@ -96,6 +96,7 @@ public sealed partial class JobItem : ObservableObject
     public string Name => Job.Post.Name;
     public string Kind => Job.IsUpdate ? "Update" : "Install";
     public string Version => UpdateDetector.Normalize(Job.Post.VersionKey) ?? "";
+
     public bool CanSolveInBrowser =>
         Job.Post.Mirrors.Any(m => m.Host == Core.Catalog.Hoster.FileDitch);
 

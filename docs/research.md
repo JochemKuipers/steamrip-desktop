@@ -35,7 +35,7 @@ The game page also renders a "Posted Build vs Steam Latest" badge client-side (`
 | `gofile.io` | 25 | No challenge; token-based API |
 | `megadb.net` | 23 | No challenge; `Referer` enforced; server wait |
 | `1fichier.com` | 4 | Free-tier wait timers; the only one Real-Debrid supports |
-| `filecrypt.cc` | 3 | CAPTCHA container around other links |
+| `filecrypt.cc` | 3 | CAPTCHA/ad container around other hosts; dropped at parse time |
 
 1–4 mirrors per post, median 2. Every sampled post had at least one of FileDitch/GoFile/MegaDB, so BuzzHeavier support was optional; it ended up working anyway.
 

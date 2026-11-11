@@ -353,6 +353,12 @@ public sealed class AppServices : IAsyncDisposable
             ProtonLocator.Effective(settings.DefaultProtonPath)
         );
         var downloader = new Downloader(http, loggers.CreateLogger<Downloader>());
+        var steamHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        var steamApps = new SteamAppIdResolver(
+            steamHttp,
+            Path.Combine(Settings.DefaultDir, "steam-apps"),
+            loggers.CreateLogger<SteamAppIdResolver>()
+        );
         var updates = new UpdateService(
             db,
             settings,
@@ -363,7 +369,8 @@ public sealed class AppServices : IAsyncDisposable
             notifier,
             launcher,
             loggers.CreateLogger<UpdateService>(),
-            new ProtonDownloader(http, downloader, loggers.CreateLogger<ProtonDownloader>())
+            new ProtonDownloader(http, downloader, loggers.CreateLogger<ProtonDownloader>()),
+            steamApps
         );
         var secrets = SecretStore.Create(Settings.DefaultDir);
         log.LogInformation(
@@ -388,8 +395,9 @@ public sealed class AppServices : IAsyncDisposable
             Log = log,
             Launcher = launcher,
             Covers = new Services.CoverCache(
-                new HttpClient { Timeout = TimeSpan.FromSeconds(20) },
+                steamHttp,
                 Path.Combine(Settings.DefaultDir, "covers"),
+                steamApps,
                 loggers.CreateLogger<Services.CoverCache>()
             ),
         };

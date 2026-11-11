@@ -158,7 +158,7 @@ public sealed partial class BrowseItem(
 
     private async Task LoadCoverAsync()
     {
-        var bmp = await covers.GetAsync(post.SteamAppId);
+        var bmp = await covers.GetAsync(post.SteamAppId, post.Name);
         if (bmp is null)
             return;
         _cover = bmp;

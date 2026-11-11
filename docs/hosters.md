@@ -61,7 +61,7 @@ Gotchas: slowest resolver (session + two page loads, ~15–25 s), so it is last 
 ## Not implemented
 
 - **1fichier** (~4 %): free-tier wait timers and occasional CAPTCHA; the only host Real-Debrid supports. Every post seen also had another mirror.
-- **FileCrypt** (~3 %): CAPTCHA container wrapping other hosts' links; interactive by design.
+- **FileCrypt** (~3 %): CAPTCHA/ad container wrapping other hosts' links; interactive by design. `CatalogParser` drops those URLs; every such post also had another mirror.
 - `Hoster.Fichier` and `Hoster.FileCrypt` exist in the enum so `HosterDetector` can label them; `ResolverChain.Supported` excludes them.
 
 ## Manual fallback

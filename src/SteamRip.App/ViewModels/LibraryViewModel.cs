@@ -339,7 +339,7 @@ public sealed partial class LibraryItem : ObservableObject
     {
         get
         {
-            if (_coverRequested || Post?.SteamAppId is not > 0)
+            if (_coverRequested)
                 return _cover;
             _coverRequested = true;
             _ = LoadCoverAsync();
@@ -350,7 +350,7 @@ public sealed partial class LibraryItem : ObservableObject
 
     private async Task LoadCoverAsync()
     {
-        var bmp = await _owner.Covers.GetAsync(Post?.SteamAppId);
+        var bmp = await _owner.Covers.GetAsync(Post?.SteamAppId, Post?.Name ?? Game.Name);
         if (bmp is null)
             return;
         _cover = bmp;

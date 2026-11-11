@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SteamRip.Core.Catalog;
@@ -25,12 +26,14 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly Installer _installer;
     private readonly INotifier _notifier;
     private readonly GameLauncher _launcher;
+    private readonly SteamAppIdResolver? _steamApps;
     private readonly ILogger _log;
     private readonly ConcurrentQueue<Job> _queue = new();
     private readonly ProtonDownloader? _protons;
     private readonly SemaphoreSlim _wake = new(0);
     private readonly CancellationTokenSource _cts = new();
     private readonly List<Job> _jobs = [];
+
     private Task? _worker,
         _scheduler;
 
@@ -44,10 +47,12 @@ public sealed class UpdateService : IAsyncDisposable
         INotifier notifier,
         GameLauncher launcher,
         ILogger<UpdateService>? logger = null,
-        ProtonDownloader? protons = null
+        ProtonDownloader? protons = null,
+        SteamAppIdResolver? steamApps = null
     )
     {
         _db = db;
+        _steamApps = steamApps;
         _protons = protons;
         _settings = settings;
         _catalog = catalog;
@@ -68,8 +73,8 @@ public sealed class UpdateService : IAsyncDisposable
             _db.GetKv(key) is { } last
             && DateTime.TryParse(
                 last,
-                null,
-                System.Globalization.DateTimeStyles.RoundtripKind,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
                 out var at
             )
             && DateTime.UtcNow - at < TimeSpan.FromHours(24)
@@ -117,6 +122,7 @@ public sealed class UpdateService : IAsyncDisposable
             _db.UpsertInstall(g with { ExeRelative = exe });
             _log.LogInformation("{Name}: auto-selected executable {Exe}", g.Name, exe);
         }
+
         var proton = ProtonLocator.Effective(g.ProtonPath ?? _settings.DefaultProtonPath);
         if (proton == ProtonLocator.DwProton)
         {
@@ -124,6 +130,10 @@ public sealed class UpdateService : IAsyncDisposable
                 throw new LaunchException("DW-Proton downloads are not available in this build.");
             proton = await _protons.EnsureDwProtonAsync(_cts.Token);
         }
+
+        var steamAppId = _steamApps is null
+            ? post?.SteamAppId
+            : await _steamApps.ResolveAsync(post?.SteamAppId, post?.Name ?? g.Name, _cts.Token);
         await _launcher.LaunchAsync(
             new LaunchSpec(
                 postId,
@@ -132,7 +142,7 @@ public sealed class UpdateService : IAsyncDisposable
                 exe,
                 proton,
                 g.LaunchArgs,
-                post?.SteamAppId,
+                steamAppId,
                 EffectiveLaunch(g)
             )
         );
@@ -168,6 +178,7 @@ public sealed class UpdateService : IAsyncDisposable
                 return [.. _jobs];
         }
     }
+
     public Job? Current { get; private set; }
     public DateTime? LastSyncUtc { get; private set; }
     public string LastSyncStatus { get; private set; } = "Never synced";
@@ -199,6 +210,7 @@ public sealed class UpdateService : IAsyncDisposable
             _log.LogDebug("Sync requested while already syncing; ignored");
             return 0;
         }
+
         Syncing = true;
         SyncChanged?.Invoke();
         try
@@ -211,6 +223,7 @@ public sealed class UpdateService : IAsyncDisposable
                 _db.UpsertCategories(await _catalog.GetCategoriesAsync(ct));
                 SyncChanged?.Invoke(); // the genre list can show up before the (long) full pass ends
             }
+
             var batch = new List<CatalogPost>();
             var newPosts = new List<CatalogPost>();
             var count = 0;
@@ -225,6 +238,7 @@ public sealed class UpdateService : IAsyncDisposable
                 _db.UpsertPosts(batch);
                 batch.Clear();
             }
+
             if (batch.Count > 0)
                 _db.UpsertPosts(batch);
             if (since is null)
@@ -295,6 +309,7 @@ public sealed class UpdateService : IAsyncDisposable
             if (g.AutoUpdate && !_settings.AutoUpdatesPaused)
                 Enqueue(post, isUpdate: true);
         }
+
         return pending;
     }
 
@@ -463,6 +478,7 @@ public sealed class UpdateService : IAsyncDisposable
             {
                 break;
             }
+
             while (_queue.TryDequeue(out var job))
             {
                 if (job.Cts.IsCancellationRequested)
@@ -655,6 +671,7 @@ public sealed class UpdateService : IAsyncDisposable
             _log.LogInformation("Reusing already-verified archive {Dest}", existing);
             return existing;
         }
+
         var attempts = 0;
         while (true)
         {
@@ -785,6 +802,7 @@ public sealed class UpdateService : IAsyncDisposable
         {
             return;
         }
+
         while (!_cts.IsCancellationRequested)
         {
             try
@@ -799,6 +817,7 @@ public sealed class UpdateService : IAsyncDisposable
             {
                 _log.LogError(e, "Scheduler tick failed");
             }
+
             _log.LogDebug(
                 "Next catalog check in {Minutes} min",
                 Math.Max(5, _settings.CheckIntervalMinutes)
@@ -833,6 +852,7 @@ public sealed class UpdateService : IAsyncDisposable
             {
                 // the worker loop ends with OperationCanceledException by design
             }
+
         if (_scheduler is not null)
             try
             {

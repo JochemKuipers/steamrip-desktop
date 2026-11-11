@@ -148,6 +148,34 @@ public class CatalogTests
         Assert.Equal(expected, HosterDetector.Detect(url));
 
     [Fact]
+    public void Steam_app_id_name_match_rejects_mafia_for_lego_batman()
+    {
+        Assert.False(
+            SteamAppIdResolver.NamesMatch(
+                "LEGO Batman: Legacy of the Dark Knight",
+                "Mafia: The Old Country"
+            )
+        );
+        Assert.True(
+            SteamAppIdResolver.NamesMatch(
+                "LEGO Batman: Legacy of the Dark Knight",
+                "LEGO® Batman™: Legacy of the Dark Knight"
+            )
+        );
+        Assert.Equal(
+            2215200,
+            SteamAppIdResolver.PickSearchMatch(
+                "LEGO Batman: Legacy of the Dark Knight",
+                [
+                    (1941540, "Mafia: The Old Country"),
+                    (2215200, "LEGO® Batman™: Legacy of the Dark Knight"),
+                    (4468750, "LEGO® Batman™: Legacy of the Dark Knight Deluxe Edition Upgrade"),
+                ]
+            )
+        );
+    }
+
+    [Fact]
     public void ResolvePath_uses_library_root_when_install_path_empty()
     {
         var g = new InstalledGame(

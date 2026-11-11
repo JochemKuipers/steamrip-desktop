@@ -1,20 +1,27 @@
 using System.Collections.Concurrent;
 using Avalonia.Media.Imaging;
 using Microsoft.Extensions.Logging;
+using SteamRip.Core.Catalog;
 
 namespace SteamRip.App.Services;
 
 /// <summary>
-/// Game covers from Steam's public CDN keyed by <c>steam_app_id</c> (no API key, ~25 KB each).
+/// Game covers from Steam's public CDN keyed by resolved <c>steam_app_id</c> (no API key, ~25 KB each).
 /// Lazy per card, 4 downloads in flight, disk cache under <c>&lt;config&gt;/covers/</c>, decoded once at thumbnail width
 /// and kept in memory. A miss is retried a few times, then remembered for this process only so the next start tries again.
+/// Site ACF app ids are validated against the game name (and corrected via Store search) before fetch.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "Design",
     "CA1001:Types that own disposable fields should be disposable",
     Justification = "Process-lifetime singleton; the semaphore dies with the app."
 )]
-public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> log)
+public sealed class CoverCache(
+    HttpClient http,
+    string dir,
+    SteamAppIdResolver appIds,
+    ILogger<CoverCache> log
+)
 {
     public const int DecodeWidth = 140;
     private const int MaxAttempts = 3;
@@ -28,10 +35,11 @@ public sealed class CoverCache(HttpClient http, string dir, ILogger<CoverCache> 
     private readonly ConcurrentDictionary<long, Task<Bitmap?>> _mem = new();
     private readonly SemaphoreSlim _gate = new(4);
 
-    public Task<Bitmap?> GetAsync(long? steamAppId) =>
-        steamAppId is > 0
-            ? _mem.GetOrAdd(steamAppId.Value, LoadAsync)
-            : Task.FromResult<Bitmap?>(null);
+    public async Task<Bitmap?> GetAsync(long? steamAppId, string? gameName = null)
+    {
+        var id = await appIds.ResolveAsync(steamAppId, gameName);
+        return id is > 0 ? await _mem.GetOrAdd(id.Value, LoadAsync) : null;
+    }
 
     private async Task<Bitmap?> LoadAsync(long id)
     {
