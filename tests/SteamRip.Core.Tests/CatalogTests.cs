@@ -148,6 +148,34 @@ public class CatalogTests
         Assert.Equal(expected, HosterDetector.Detect(url));
 
     [Fact]
+    public void ResolvePath_uses_library_root_when_install_path_empty()
+    {
+        var g = new InstalledGame(
+            1,
+            "cool-game",
+            "Cool",
+            "1",
+            "",
+            DateTime.UtcNow,
+            true,
+            InstallState.Installed,
+            null
+        );
+        Assert.Equal(
+            Path.Combine("/mnt/storage2/SteamRIP", "cool-game"),
+            g.ResolvePath("/mnt/storage2/SteamRIP")
+        );
+        Assert.Equal(
+            "/elsewhere/Cool",
+            (g with { InstallPath = "/elsewhere/Cool" }).ResolvePath("/mnt/storage2/SteamRIP")
+        );
+        Assert.Equal(
+            Path.Combine("/lib", "cool-game"),
+            (g with { InstallPath = "   " }).ResolvePath("/lib")
+        );
+    }
+
+    [Fact]
     public void Update_detection_uses_version_key_not_modified_date()
     {
         var posts = CatalogParser.Parse(Fixture.Read("posts_page1.json"));

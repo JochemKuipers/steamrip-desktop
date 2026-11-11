@@ -1066,7 +1066,19 @@
                     </Grid>
                     <ScrollViewer>
                         <StackPanel Spacing="8" Margin="24,0,24,24" DataContext="{Binding Editing}">
-                            <TextBlock Classes="eyebrow" Text="EXECUTABLE" />
+                            <TextBlock Classes="eyebrow" Text="INSTALL FOLDER" />
+                            <TextBox
+                                Text="{Binding CustomInstallPath}"
+                                PlaceholderText="{Binding DefaultInstallPath}"
+                                FontFamily="{StaticResource Mono}"
+                                FontSize="12"
+                            />
+                            <TextBlock
+                                Classes="muted"
+                                Text="Leave empty to use the Settings library folder; set an absolute path for a custom location."
+                                TextWrapping="Wrap"
+                            />
+                            <TextBlock Classes="eyebrow" Text="EXECUTABLE" Margin="0,6,0,0" />
                             <ComboBox
                                 ItemsSource="{Binding Exes}"
                                 SelectedItem="{Binding SelectedExe}"

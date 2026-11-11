@@ -16,6 +16,10 @@ public enum InstallState
     NeedsAttention,
 }
 
+/// <summary>
+/// One library row. <see cref="InstallPath"/> empty means the game lives at <c>LibraryRoot/Slug</c>;
+/// a non-empty value is a per-game absolute folder (see <see cref="ResolvePath"/>).
+/// </summary>
 public sealed record InstalledGame(
     long PostId,
     string Slug,
@@ -32,7 +36,12 @@ public sealed record InstalledGame(
     DateTime? LastPlayedUtc = null,
     long PlaytimeSeconds = 0,
     LaunchOptions? Launch = null
-);
+)
+{
+    /// <summary>Empty <see cref="InstallPath"/> → <c>libraryRoot/slug</c>; otherwise the stored absolute path.</summary>
+    public string ResolvePath(string libraryRoot) =>
+        string.IsNullOrWhiteSpace(InstallPath) ? Path.Combine(libraryRoot, Slug) : InstallPath;
+}
 
 /// <summary>Hand-written SQLite schema with a migrations table. One file, WAL mode.</summary>
 public sealed class Database : IDisposable
@@ -99,6 +108,8 @@ public sealed class Database : IDisposable
             ALTER TABLE posts ADD COLUMN popularity_rank INTEGER;
             CREATE INDEX posts_popularity ON posts(popularity_rank);
             """,
+        // 7: install_path empty = LibraryRoot/slug (absolute paths were baked in and broke when the library moved)
+        "UPDATE installs SET install_path = '';",
     ];
 
     /// <summary>Set by <see cref="Migrate"/> when a migration needs C# work afterwards (e.g. 4: parse size_text into size_bytes).</summary>

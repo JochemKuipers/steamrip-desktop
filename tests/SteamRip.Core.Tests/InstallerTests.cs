@@ -76,6 +76,29 @@ public class InstallerTests : IDisposable
     }
 
     [SkippableFact]
+    public async Task Custom_install_path_lands_outside_library_root()
+    {
+        Skip.IfNot(HasSevenZip, "7z not installed");
+        var lib = Path.Combine(_root, "lib");
+        var custom = Path.Combine(_root, "elsewhere", "my-cool-game");
+        var inst = new Installer(_tool);
+        var result = await inst.InstallAsync(
+            MakeArchive("v1"),
+            "cool-game",
+            12345,
+            null,
+            new InstallOptions(lib, CustomInstallPath: custom),
+            null,
+            CancellationToken.None
+        );
+
+        Assert.Equal(custom, result.InstallPath);
+        Assert.True(File.Exists(Path.Combine(custom, "game.exe")));
+        Assert.False(Directory.Exists(Path.Combine(lib, "cool-game")));
+        Assert.False(Directory.Exists(Path.Combine(lib, ".staging", "cool-game")));
+    }
+
+    [SkippableFact]
     public async Task Update_backs_up_saves_preserves_wine_prefix_and_prunes_backups()
     {
         Skip.IfNot(HasSevenZip, "7z not installed");

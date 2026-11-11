@@ -107,12 +107,13 @@ public sealed class UpdateService : IAsyncDisposable
         if (g.State is not InstallState.Installed)
             throw new LaunchException($"{g.Name} is {g.State}; wait for it to finish.");
         var post = _db.GetPost(postId);
+        var path = g.ResolvePath(_settings.LibraryRoot);
         var exe = g.ExeRelative;
-        if (exe is null || !File.Exists(Path.Combine(g.InstallPath, exe)))
+        if (exe is null || !File.Exists(Path.Combine(path, exe)))
         {
             exe =
-                ExeFinder.Best(g.InstallPath, g.Name)
-                ?? throw new LaunchException($"No executable found in {g.InstallPath}.");
+                ExeFinder.Best(path, g.Name)
+                ?? throw new LaunchException($"No executable found in {path}.");
             _db.UpsertInstall(g with { ExeRelative = exe });
             _log.LogInformation("{Name}: auto-selected executable {Exe}", g.Name, exe);
         }
@@ -127,7 +128,7 @@ public sealed class UpdateService : IAsyncDisposable
             new LaunchSpec(
                 postId,
                 g.Name,
-                g.InstallPath,
+                path,
                 exe,
                 proton,
                 g.LaunchArgs,
@@ -332,7 +333,7 @@ public sealed class UpdateService : IAsyncDisposable
                         post.Slug,
                         post.Name,
                         null,
-                        Path.Combine(_settings.LibraryRoot, post.Slug),
+                        "",
                         DateTime.UtcNow,
                         true,
                         InstallState.Queued,
@@ -385,14 +386,15 @@ public sealed class UpdateService : IAsyncDisposable
             return;
         if (_launcher.IsRunning(postId))
             _launcher.Stop(postId);
+        var path = g.ResolvePath(_settings.LibraryRoot);
         _log.LogInformation(
             "Uninstall {Name}: {Path} (delete files: {Delete})",
             g.Name,
-            g.InstallPath,
+            path,
             deleteFiles
         );
-        if (deleteFiles && Directory.Exists(g.InstallPath))
-            Directory.Delete(g.InstallPath, true);
+        if (deleteFiles && Directory.Exists(path))
+            Directory.Delete(path, true);
         _db.RemoveInstall(postId);
         TryShortcuts(() => Shortcuts.RemoveAll(postId, g.Name), g.Name, "remove shortcuts");
         _db.LogEvent("uninstall", g.Name, postId);
@@ -513,7 +515,10 @@ public sealed class UpdateService : IAsyncDisposable
 
             job.Set(JobStage.Installing, "Installing…");
             _db.SetInstallState(post.Id, InstallState.Installing);
-            var opt = new InstallOptions(_settings.LibraryRoot, _settings.KeepBackups);
+            var custom = string.IsNullOrWhiteSpace(previous?.InstallPath)
+                ? null
+                : previous.InstallPath;
+            var opt = new InstallOptions(_settings.LibraryRoot, _settings.KeepBackups, custom);
             var result = await _installer.InstallAsync(
                 archivePath,
                 post.Slug,
@@ -549,7 +554,7 @@ public sealed class UpdateService : IAsyncDisposable
                     post.Slug,
                     post.Name,
                     UpdateDetector.Normalize(post.VersionKey),
-                    result.InstallPath,
+                    previous?.InstallPath ?? "",
                     DateTime.UtcNow,
                     previous?.AutoUpdate ?? true,
                     InstallState.Installed,
@@ -558,7 +563,8 @@ public sealed class UpdateService : IAsyncDisposable
                     previous?.ProtonPath,
                     previous?.LaunchArgs,
                     previous?.LastPlayedUtc,
-                    previous?.PlaytimeSeconds ?? 0
+                    previous?.PlaytimeSeconds ?? 0,
+                    previous?.Launch
                 )
             );
             if (_settings.ShortcutMenu)
@@ -750,7 +756,10 @@ public sealed class UpdateService : IAsyncDisposable
         previous ??= _db.GetInstall(postId);
         if (previous is null)
             return;
-        if (previous.InstalledVersion is null && !Directory.Exists(previous.InstallPath))
+        if (
+            previous.InstalledVersion is null
+            && !Directory.Exists(previous.ResolvePath(_settings.LibraryRoot))
+        )
         {
             if (error is null)
                 _db.RemoveInstall(postId);

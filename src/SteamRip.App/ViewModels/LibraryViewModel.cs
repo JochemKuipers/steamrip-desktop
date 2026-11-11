@@ -22,6 +22,7 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         s.Settings.DefaultLaunch.MergeOver(LaunchOptions.AppDefaults);
     internal HostCapabilities? Capabilities => s.CapabilitiesNow;
     internal string DefaultProtonPath => ProtonLocator.Effective(s.Settings.DefaultProtonPath);
+    internal string LibraryRoot => s.Settings.LibraryRoot;
 
     [ObservableProperty]
     public partial int UpdatesAvailable { get; set; }
@@ -122,11 +123,11 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         Refresh();
     }
 
-    public void OpenFolder(LibraryItem item) => OpenPath(item.Game.InstallPath);
+    public void OpenFolder(LibraryItem item) => OpenPath(item.ResolvedPath);
 
     public void OpenPrefix(LibraryItem item)
     {
-        var p = GameLauncher.PrefixDir(item.Game.InstallPath);
+        var p = GameLauncher.PrefixDir(item.ResolvedPath);
         if (Directory.Exists(p))
             OpenPath(p);
         else
@@ -143,6 +144,22 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     {
         s.Db.UpsertInstall(item.Game with { ExeRelative = rel });
         s.Log.LogInformation("{Name}: executable set to {Exe}", item.Name, rel);
+        Refresh();
+    }
+
+    public void SetInstallPath(LibraryItem item, string? path)
+    {
+        var custom = string.IsNullOrWhiteSpace(path) ? "" : path.Trim();
+        if (custom == item.Game.InstallPath)
+            return;
+        s.Db.UpsertInstall(item.Game with { InstallPath = custom });
+        s.Log.LogInformation(
+            "{Name}: install folder set to {Path}",
+            item.Name,
+            string.IsNullOrEmpty(custom)
+                ? $"default ({Path.Combine(LibraryRoot, item.Game.Slug)})"
+                : custom
+        );
         Refresh();
     }
 
@@ -249,6 +266,7 @@ public sealed partial class LibraryItem : ObservableObject
         HasUpdate = hasUpdate;
         IsRunning = running;
         LaunchArgs = game.LaunchArgs ?? "";
+        CustomInstallPath = game.InstallPath;
         Launch = new LaunchOptionsEditor(
             () => _owner.DefaultLaunch,
             () => _owner.Capabilities,
@@ -281,6 +299,8 @@ public sealed partial class LibraryItem : ObservableObject
         IsRunning = running;
         if (exeChanged)
             RefreshExes();
+        if (CustomInstallPath != game.InstallPath)
+            CustomInstallPath = game.InstallPath;
         if (LaunchArgs != (game.LaunchArgs ?? ""))
             LaunchArgs = game.LaunchArgs ?? "";
         if (
@@ -296,7 +316,7 @@ public sealed partial class LibraryItem : ObservableObject
     private void RefreshExes()
     {
         Exes.Clear();
-        foreach (var c in ExeFinder.Candidates(Game.InstallPath, Game.Name))
+        foreach (var c in ExeFinder.Candidates(ResolvedPath, Game.Name))
             Exes.Add(c.RelativePath);
         if (Game.ExeRelative is { } cur && !Exes.Contains(cur))
             Exes.Insert(0, cur);
@@ -338,6 +358,8 @@ public sealed partial class LibraryItem : ObservableObject
     }
 
     public string Name => Game.Name;
+    public string ResolvedPath => Game.ResolvePath(_owner.LibraryRoot);
+    public string DefaultInstallPath => Path.Combine(_owner.LibraryRoot, Game.Slug);
     public string InstalledVersion => Game.InstalledVersion ?? "—";
     public string SiteVersion => UpdateDetector.Normalize(Post?.VersionKey) ?? "—";
     public bool HasUpdate { get; private set; }
@@ -424,6 +446,16 @@ public sealed partial class LibraryItem : ObservableObject
     {
         if (value != (Game.LaunchArgs ?? ""))
             _owner.SetArgs(this, value);
+    }
+
+    /// <summary>Empty = under the Settings library folder; otherwise an absolute custom install directory.</summary>
+    [ObservableProperty]
+    public partial string CustomInstallPath { get; set; }
+
+    partial void OnCustomInstallPathChanged(string value)
+    {
+        if (value != Game.InstallPath)
+            _owner.SetInstallPath(this, value);
     }
 
     [RelayCommand]

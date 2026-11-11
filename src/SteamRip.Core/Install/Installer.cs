@@ -3,7 +3,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SteamRip.Core.Install;
 
-public sealed record InstallOptions(string LibraryRoot, int KeepBackups = 2);
+public sealed record InstallOptions(
+    string LibraryRoot,
+    int KeepBackups = 2,
+    string? CustomInstallPath = null
+);
 
 public sealed record InstallResult(
     string InstallPath,
@@ -38,7 +42,9 @@ public sealed class Installer(ArchiveTool archive, ILogger<Installer>? logger = 
         CancellationToken ct
     )
     {
-        var target = Path.Combine(opt.LibraryRoot, slug);
+        var target = string.IsNullOrWhiteSpace(opt.CustomInstallPath)
+            ? Path.Combine(opt.LibraryRoot, slug)
+            : opt.CustomInstallPath;
         var staging = Path.Combine(opt.LibraryRoot, ".staging", slug);
         var backupsRoot = Path.Combine(opt.LibraryRoot, ".backups", slug);
 
