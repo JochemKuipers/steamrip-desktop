@@ -15,8 +15,8 @@ public enum ShortcutPlace
 /// (<c>~/.local/share/applications</c> for the menu, the XDG desktop dir for the desktop). Windows: <c>.lnk</c> files
 /// written through WScript.Shell in PowerShell (Start Menu\Programs\SteamRIP, Desktop).
 /// </summary>
-// ponytail: the Linux icon is the cached Steam cover .jpg by absolute path (KDE and GNOME load it, the spec says png);
-// Windows shortcuts use the app's own icon because a .lnk needs an .ico.
+// ponytail: Linux Icon= prefers SteamGridDB icons/<id>.png, then covers/<id>.jpg (KDE/GNOME load both);
+// Windows .lnk still uses the app icon (.ico pipeline not worth it for one user).
 public static partial class Shortcuts
 {
     private const string Prefix = "steamrip-game-";
@@ -61,13 +61,24 @@ public static partial class Shortcuts
         Remove(postId, name, ShortcutPlace.Menu);
     }
 
-    /// <summary>The cached Steam cover the library cards use, when it has been fetched; null otherwise.</summary>
-    public static string? CoverIcon(long? steamAppId)
+    /// <summary>
+    /// Absolute path for a .desktop Icon=: SteamGridDB <c>icons/&lt;id&gt;.*</c> if present, else
+    /// <c>covers/&lt;id&gt;.jpg</c>. Null → the app id is used as the icon name.
+    /// </summary>
+    public static string? GameIcon(long? steamAppId)
     {
         if (steamAppId is not > 0)
             return null;
-        var file = Path.Combine(Data.Settings.DefaultDir, "covers", $"{steamAppId}.jpg");
-        return File.Exists(file) ? file : null;
+        var root = Data.Settings.DefaultDir;
+        var icons = Path.Combine(root, "icons");
+        foreach (var ext in new[] { ".png", ".jpg", ".webp" })
+        {
+            var icon = Path.Combine(icons, steamAppId + ext);
+            if (File.Exists(icon))
+                return icon;
+        }
+        var cover = Path.Combine(root, "covers", $"{steamAppId}.jpg");
+        return File.Exists(cover) ? cover : null;
     }
 
     /// <summary>Pure: the .desktop file body.</summary>

@@ -104,9 +104,9 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         Refresh();
     }
 
-    public void ToggleShortcut(LibraryItem item, ShortcutPlace place)
+    public async Task ToggleShortcut(LibraryItem item, ShortcutPlace place)
     {
-        s.Updates.SetShortcut(
+        await s.Updates.SetShortcutAsync(
             item.Game.PostId,
             place,
             !s.Updates.HasShortcut(item.Game.PostId, place)
@@ -474,10 +474,10 @@ public sealed partial class LibraryItem : ObservableObject
     private void ToggleAuto() => _owner.ToggleAuto(this);
 
     [RelayCommand]
-    private void ToggleDesktopShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Desktop);
+    private Task ToggleDesktopShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Desktop);
 
     [RelayCommand]
-    private void ToggleMenuShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Menu);
+    private Task ToggleMenuShortcut() => _owner.ToggleShortcut(this, ShortcutPlace.Menu);
 
     [RelayCommand]
     private void OpenFolder() => _owner.OpenFolder(this);

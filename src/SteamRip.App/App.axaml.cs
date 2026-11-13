@@ -362,6 +362,12 @@ public sealed class AppServices : IAsyncDisposable
             Path.Combine(Settings.DefaultDir, "steam-apps"),
             loggers.CreateLogger<SteamAppIdResolver>()
         );
+        var secrets = SecretStore.Create(Settings.DefaultDir);
+        var steamGridDb = new SteamGridDbClient(
+            steamHttp,
+            () => secrets.Read(SteamGridDb.SecretKey),
+            loggers.CreateLogger<SteamGridDbClient>()
+        );
         var updates = new UpdateService(
             db,
             settings,
@@ -373,9 +379,9 @@ public sealed class AppServices : IAsyncDisposable
             launcher,
             loggers.CreateLogger<UpdateService>(),
             new ProtonDownloader(http, downloader, loggers.CreateLogger<ProtonDownloader>()),
-            steamApps
+            steamApps,
+            steamGridDb
         );
-        var secrets = SecretStore.Create(Settings.DefaultDir);
         log.LogInformation(
             "Secrets backend: {Backend}; catalog has {Posts} posts, {Installs} installs",
             secrets.Backend,
@@ -401,6 +407,7 @@ public sealed class AppServices : IAsyncDisposable
                 steamHttp,
                 Path.Combine(Settings.DefaultDir, "covers"),
                 steamApps,
+                steamGridDb,
                 loggers.CreateLogger<Services.CoverCache>()
             ),
         };

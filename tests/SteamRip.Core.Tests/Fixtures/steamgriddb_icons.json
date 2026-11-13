@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "page": 0,
+  "total": 2,
+  "limit": 10,
+  "data": [
+    {
+      "id": 11,
+      "score": 5,
+      "style": "official",
+      "url": "https://cdn2.steamgriddb.com/icon/jpeg_icon.jpg"
+    },
+    {
+      "id": 12,
+      "score": 5,
+      "style": "official",
+      "url": "https://cdn2.steamgriddb.com/icon/png_icon.png"
+    }
+  ]
+}

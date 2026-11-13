@@ -34,6 +34,10 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     public partial string FlareSolverrUrl { get; set; }
 
+    /// <summary>SteamGridDB API key (secret store); empty clears it.</summary>
+    [ObservableProperty]
+    public partial string SteamGridDbApiKey { get; set; }
+
     [ObservableProperty]
     public partial int CheckIntervalMinutes { get; set; }
 
@@ -100,6 +104,7 @@ public partial class SettingsViewModel : ObservableObject
         var current = ProtonLocator.Effective(c.DefaultProtonPath);
         DefaultProton = Protons.FirstOrDefault(p => p.Path == current) ?? Protons[0];
         FlareSolverrUrl = c.FlareSolverrUrl;
+        SteamGridDbApiKey = s.Secrets.Read(Core.Catalog.SteamGridDb.SecretKey) ?? "";
         CheckIntervalMinutes = c.CheckIntervalMinutes;
         NotifyNewGames = c.NotifyNewGames;
         StartHidden = c.StartHidden;
@@ -154,6 +159,8 @@ public partial class SettingsViewModel : ObservableObject
         c.DownloadsRoot = DownloadsRoot.Trim();
         c.DefaultProtonPath = DefaultProton?.Path ?? ProtonLocator.GeProton;
         c.FlareSolverrUrl = Core.Solver.FlareSolverrClient.NormalizeUrl(FlareSolverrUrl);
+        var sgdbKey = SteamGridDbApiKey.Trim();
+        _s.Secrets.Write(Core.Catalog.SteamGridDb.SecretKey, sgdbKey.Length > 0 ? sgdbKey : null);
         c.CheckIntervalMinutes = Math.Max(5, CheckIntervalMinutes);
         c.NotifyNewGames = NotifyNewGames;
         c.StartHidden = StartHidden;

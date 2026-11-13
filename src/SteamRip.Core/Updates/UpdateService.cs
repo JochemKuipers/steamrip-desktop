@@ -27,6 +27,7 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly INotifier _notifier;
     private readonly GameLauncher _launcher;
     private readonly SteamAppIdResolver? _steamApps;
+    private readonly SteamGridDbClient? _steamGridDb;
     private readonly ILogger _log;
     private readonly ConcurrentQueue<Job> _queue = new();
     private readonly ProtonDownloader? _protons;
@@ -48,11 +49,13 @@ public sealed class UpdateService : IAsyncDisposable
         GameLauncher launcher,
         ILogger<UpdateService>? logger = null,
         ProtonDownloader? protons = null,
-        SteamAppIdResolver? steamApps = null
+        SteamAppIdResolver? steamApps = null,
+        SteamGridDbClient? steamGridDb = null
     )
     {
         _db = db;
         _steamApps = steamApps;
+        _steamGridDb = steamGridDb;
         _protons = protons;
         _settings = settings;
         _catalog = catalog;
@@ -411,7 +414,14 @@ public sealed class UpdateService : IAsyncDisposable
         if (deleteFiles && Directory.Exists(path))
             Directory.Delete(path, true);
         _db.RemoveInstall(postId);
-        TryShortcuts(() => Shortcuts.RemoveAll(postId, g.Name), g.Name, "remove shortcuts");
+        try
+        {
+            Shortcuts.RemoveAll(postId, g.Name);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning("{Name}: could not remove shortcuts: {Error}", g.Name, e.Message);
+        }
         _db.LogEvent("uninstall", g.Name, postId);
         JobsChanged?.Invoke();
     }
@@ -422,29 +432,53 @@ public sealed class UpdateService : IAsyncDisposable
         _db.GetInstall(postId) is { } g && Shortcuts.Exists(postId, g.Name, place);
 
     /// <summary>Creates or removes one game's shortcut; failures are logged, never thrown.</summary>
-    public void SetShortcut(long postId, ShortcutPlace place, bool present)
+    public void SetShortcut(long postId, ShortcutPlace place, bool present) =>
+        _ = SetShortcutAsync(postId, place, present);
+
+    /// <summary>Same as <see cref="SetShortcut"/> but awaitable (install path resolves the cover id first).</summary>
+    public async Task SetShortcutAsync(long postId, ShortcutPlace place, bool present)
     {
         if (_db.GetInstall(postId) is not { } g)
             return;
         var post = _db.GetPost(postId);
-        TryShortcuts(
-            () =>
+        try
+        {
+            if (present)
             {
-                if (present)
-                    Shortcuts.Create(postId, g.Name, Shortcuts.CoverIcon(post?.SteamAppId), place);
-                else
-                    Shortcuts.Remove(postId, g.Name, place);
-                _log.LogInformation(
-                    "{Name}: {Action} {Place} shortcut {Path}",
-                    g.Name,
-                    present ? "created" : "removed",
-                    place,
-                    Shortcuts.PathFor(postId, g.Name, place)
-                );
-            },
-            g.Name,
-            (present ? "create " : "remove ") + place + " shortcut"
-        );
+                var id = _steamApps is null
+                    ? post?.SteamAppId
+                    : await _steamApps.ResolveAsync(
+                        post?.SteamAppId,
+                        post?.Name ?? g.Name,
+                        _cts.Token
+                    );
+                if (id is > 0 && _steamGridDb is not null)
+                    await _steamGridDb.EnsureIconFileAsync(
+                        id.Value,
+                        Path.Combine(Settings.DefaultDir, "icons"),
+                        _cts.Token
+                    );
+                Shortcuts.Create(postId, g.Name, Shortcuts.GameIcon(id), place);
+            }
+            else
+                Shortcuts.Remove(postId, g.Name, place);
+            _log.LogInformation(
+                "{Name}: {Action} {Place} shortcut {Path}",
+                g.Name,
+                present ? "created" : "removed",
+                place,
+                Shortcuts.PathFor(postId, g.Name, place)
+            );
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            _log.LogWarning(
+                "{Name}: could not {What}: {Error}",
+                g.Name,
+                (present ? "create " : "remove ") + place + " shortcut",
+                e.Message
+            );
+        }
     }
 
     /// <summary>Settings toggle: apply to every installed game at once.</summary>
@@ -452,18 +486,6 @@ public sealed class UpdateService : IAsyncDisposable
     {
         foreach (var g in _db.GetInstalls().Where(g => g.State == InstallState.Installed))
             SetShortcut(g.PostId, place, present);
-    }
-
-    private void TryShortcuts(Action action, string name, string what)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            _log.LogWarning("{Name}: could not {What}: {Error}", name, what, e.Message);
-        }
     }
 
     private async Task WorkerLoopAsync()
@@ -584,9 +606,9 @@ public sealed class UpdateService : IAsyncDisposable
                 )
             );
             if (_settings.ShortcutMenu)
-                SetShortcut(post.Id, ShortcutPlace.Menu, true);
+                await SetShortcutAsync(post.Id, ShortcutPlace.Menu, true);
             if (_settings.ShortcutDesktop)
-                SetShortcut(post.Id, ShortcutPlace.Desktop, true);
+                await SetShortcutAsync(post.Id, ShortcutPlace.Desktop, true);
             var what = job.IsUpdate
                 ? $"Updated to {post.VersionKey}"
                 : $"Installed {post.VersionKey}";

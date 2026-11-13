@@ -23,6 +23,43 @@ public class ShortcutsTests
         Assert.Equal("game", Shortcuts.SafeName("???"));
     }
 
+    [Fact]
+    public void GameIcon_prefers_icons_dir_over_covers()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "sr-icons-" + Guid.NewGuid().ToString("N"));
+        var old = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        // Settings.DefaultDir uses XDG_CONFIG_HOME/steamrip-desktop on Linux.
+        Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", root);
+        try
+        {
+            var cfg = Path.Combine(root, "steamrip-desktop");
+            Directory.CreateDirectory(Path.Combine(cfg, "covers"));
+            Directory.CreateDirectory(Path.Combine(cfg, "icons"));
+            File.WriteAllText(Path.Combine(cfg, "covers", "99.jpg"), "cover");
+            Assert.EndsWith(
+                Path.Combine("covers", "99.jpg"),
+                Shortcuts.GameIcon(99)!.Replace('/', Path.DirectorySeparatorChar)
+            );
+            File.WriteAllText(Path.Combine(cfg, "icons", "99.png"), "icon");
+            Assert.EndsWith(
+                Path.Combine("icons", "99.png"),
+                Shortcuts.GameIcon(99)!.Replace('/', Path.DirectorySeparatorChar)
+            );
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", old);
+            try
+            {
+                Directory.Delete(root, true);
+            }
+            catch
+            {
+                // best-effort
+            }
+        }
+    }
+
     [SkippableFact]
     public void Menu_shortcut_round_trip_under_xdg_data_home()
     {

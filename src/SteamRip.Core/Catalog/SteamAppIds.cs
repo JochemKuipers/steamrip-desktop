@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,8 +11,14 @@ namespace SteamRip.Core.Catalog;
 
 /// <summary>
 /// Steam app ids from the site's ACF are sometimes wrong (copy-paste). Validate against the Store
-/// name and fall back to <c>storesearch</c> by game title. Results are cached under <c>dir</c>.
+/// name and fall back to <c>storesearch</c> by game title. Positive hits cache under <c>dir</c>;
+/// misses are process-lifetime only so the next start can try again.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "Process-lifetime singleton; the semaphore dies with the app."
+)]
 public sealed partial class SteamAppIdResolver(
     HttpClient http,
     string dir,
@@ -19,6 +26,8 @@ public sealed partial class SteamAppIdResolver(
 )
 {
     private readonly ILogger _log = logger ?? NullLogger<SteamAppIdResolver>.Instance;
+    private readonly SemaphoreSlim _gate = new(4);
+    private readonly ConcurrentDictionary<string, byte> _misses = new();
 
     /// <summary>
     /// Returns a Steam app id whose store name matches <paramref name="gameName"/>, preferring
@@ -37,46 +46,66 @@ public sealed partial class SteamAppIdResolver(
         Directory.CreateDirectory(dir);
         var cacheKey = claimed is > 0 ? $"id-{claimed.Value}" : $"name-{StableHash(gameName!)}";
         var cachePath = Path.Combine(dir, cacheKey + ".json");
-        if (TryReadCache(cachePath, out var cached))
+        if (TryReadCache(cachePath, out var cached) && cached is > 0)
             return cached;
+        if (_misses.ContainsKey(cacheKey))
+            return null;
 
         long? resolved = null;
         try
         {
-            if (claimed is > 0)
+            await _gate.WaitAsync(ct);
+            try
             {
-                var steamName = await AppNameAsync(claimed.Value, ct);
-                if (steamName is not null && (gameName is null || NamesMatch(gameName, steamName)))
-                    resolved = claimed;
-                else if (steamName is not null)
-                    _log.LogDebug(
-                        "Steam app {AppId} is '{SteamName}', not '{Game}' — searching",
-                        claimed,
-                        steamName,
-                        gameName
-                    );
-            }
+                if (claimed is > 0)
+                {
+                    var steamName = await AppNameAsync(claimed.Value, ct);
+                    if (
+                        steamName is not null
+                        && (gameName is null || NamesMatch(gameName, steamName))
+                    )
+                        resolved = claimed;
+                    else if (steamName is not null)
+                        _log.LogDebug(
+                            "Steam app {AppId} is '{SteamName}', not '{Game}' — searching",
+                            claimed,
+                            steamName,
+                            gameName
+                        );
+                }
 
-            if (resolved is null && gameName is not null)
-                resolved = await SearchAsync(gameName, ct);
+                if (resolved is null && gameName is not null)
+                    resolved = await SearchAsync(gameName, ct);
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
         catch (Exception e)
             when (e is HttpRequestException or TaskCanceledException or JsonException)
         {
             _log.LogDebug("Steam app id resolve for '{Game}' failed: {Error}", gameName, e.Message);
             // don't cache failures — next start / next card can retry
-            return claimed is > 0 ? claimed : null;
+            return null;
         }
 
-        WriteCache(cachePath, resolved);
-        if (resolved is > 0 && claimed is > 0 && resolved != claimed)
-            _log.LogInformation(
-                "Steam app id for '{Game}': site had {Claimed}, using {Resolved}",
-                gameName,
-                claimed,
-                resolved
-            );
-        return resolved;
+        if (resolved is > 0)
+        {
+            WriteCache(cachePath, resolved.Value);
+            _misses.TryRemove(cacheKey, out _);
+            if (claimed is > 0 && resolved != claimed)
+                _log.LogInformation(
+                    "Steam app id for '{Game}': site had {Claimed}, using {Resolved}",
+                    gameName,
+                    claimed,
+                    resolved
+                );
+            return resolved;
+        }
+
+        _misses[cacheKey] = 0;
+        return null;
     }
 
     private async Task<string?> AppNameAsync(long appId, CancellationToken ct)
@@ -102,9 +131,54 @@ public sealed partial class SteamAppIdResolver(
 
     private async Task<long?> SearchAsync(string gameName, CancellationToken ct)
     {
+        foreach (var term in SearchTerms(gameName))
+        {
+            var hit = await StoreSearchAsync(term, gameName, ct);
+            if (hit is > 0)
+                return hit;
+        }
+        return null;
+    }
+
+    /// <summary>Full title, then the segment before <c>:</c> / <c> - </c> when that is shorter.</summary>
+    public static IEnumerable<string> SearchTerms(string gameName)
+    {
+        yield return gameName;
+        var cut = TitlePrefix(gameName);
+        if (cut is not null)
+            yield return cut;
+    }
+
+    /// <summary>Text before the first <c>:</c> or <c> - </c>, when it leaves a useful shorter query.</summary>
+    public static string? TitlePrefix(string gameName)
+    {
+        var s = gameName.Trim();
+        var colon = s.IndexOf(':');
+        var dash = s.IndexOf(" - ", StringComparison.Ordinal);
+        var at = (colon, dash) switch
+        {
+            (< 0, < 0) => -1,
+            (var c, < 0) => c,
+            (< 0, var d) => d,
+            (var c, var d) => Math.Min(c, d),
+        };
+        if (at < 3)
+            return null;
+        var prefix = s[..at].Trim();
+        return prefix.Length >= 3 && !prefix.Equals(s, StringComparison.OrdinalIgnoreCase)
+            ? prefix
+            : null;
+    }
+
+    private async Task<long?> StoreSearchAsync(
+        string term,
+        string matchAgainst,
+        CancellationToken ct
+    )
+    {
         var url =
             "https://store.steampowered.com/api/storesearch/?l=english&cc=US&term="
-            + Uri.EscapeDataString(gameName);
+            + Uri.EscapeDataString(term);
         using var r = await http.GetAsync(url, ct);
         if (!r.IsSuccessStatusCode)
             return null;
@@ -125,7 +199,8 @@ public sealed partial class SteamAppIdResolver(
             )
             .Where(h => h.Id > 0 && h.Type is "app" or "game" or "")
             .Select(h => (h.Id, h.Name));
-        return PickSearchMatch(gameName, hits);
+        // Always score against the full game name so a short query cannot pick a loose sibling.
+        return PickSearchMatch(matchAgainst, hits);
     }
 
     /// <summary>Significant token overlap; ignores trademark noise and short stopwords.</summary>
@@ -218,11 +293,12 @@ public sealed partial class SteamAppIdResolver(
             using var doc = JsonDocument.Parse(File.ReadAllText(path));
             if (!doc.RootElement.TryGetProperty("id", out var el))
                 return false;
+            // Legacy poison files from older builds that cached null — ignore and resolve again.
             if (el.ValueKind == JsonValueKind.Null)
-                return true;
-            if (el.TryGetInt64(out var n))
+                return false;
+            if (el.TryGetInt64(out var n) && n > 0)
             {
-                id = n > 0 ? n : null;
+                id = n;
                 return true;
             }
         }
@@ -233,11 +309,11 @@ public sealed partial class SteamAppIdResolver(
         return false;
     }
 
-    private static void WriteCache(string path, long? id)
+    private static void WriteCache(string path, long id)
     {
         try
         {
-            File.WriteAllText(path, id is > 0 ? $"{{\"id\":{id}}}" : "{\"id\":null}");
+            File.WriteAllText(path, $"{{\"id\":{id}}}");
         }
         catch
         {

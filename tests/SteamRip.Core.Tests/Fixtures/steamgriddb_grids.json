@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "page": 0,
+  "total": 2,
+  "limit": 10,
+  "data": [
+    {
+      "id": 1,
+      "score": 10,
+      "style": "alternate",
+      "url": "https://cdn2.steamgriddb.com/grid/low_score.jpg",
+      "thumb": "https://cdn2.steamgriddb.com/grid/low_score_thumb.jpg"
+    },
+    {
+      "id": 2,
+      "score": 42,
+      "style": "white_logo",
+      "url": "https://cdn2.steamgriddb.com/grid/best_grid.png",
+      "thumb": "https://cdn2.steamgriddb.com/grid/best_grid_thumb.png"
+    }
+  ]
+}

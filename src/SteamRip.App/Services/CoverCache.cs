@@ -6,10 +6,8 @@ using SteamRip.Core.Catalog;
 namespace SteamRip.App.Services;
 
 /// <summary>
-/// Game covers from Steam's public CDN keyed by resolved <c>steam_app_id</c> (no API key, ~25 KB each).
-/// Lazy per card, 4 downloads in flight, disk cache under <c>&lt;config&gt;/covers/</c>, decoded once at thumbnail width
-/// and kept in memory. A miss is retried a few times, then remembered for this process only so the next start tries again.
-/// Site ACF app ids are validated against the game name (and corrected via Store search) before fetch.
+/// Library/browse covers: SteamGridDB 600×900 grids when an API key is set, else Steam CDN
+/// <c>library_600x900.jpg</c>. Disk cache under <c>&lt;config&gt;/covers/</c>, decoded at 140 px.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage(
     "Design",
@@ -20,12 +18,12 @@ public sealed class CoverCache(
     HttpClient http,
     string dir,
     SteamAppIdResolver appIds,
+    SteamGridDbClient? steamGridDb,
     ILogger<CoverCache> log
 )
 {
     public const int DecodeWidth = 140;
     private const int MaxAttempts = 3;
-    private static readonly string[] Variants = ["library_600x900.jpg", "header.jpg"];
     private static readonly TimeSpan[] Backoffs =
     [
         TimeSpan.FromMilliseconds(400),
@@ -47,7 +45,6 @@ public sealed class CoverCache(
         try
         {
             Directory.CreateDirectory(dir);
-            // Old week-long markers from earlier builds; a miss is now process-lifetime only.
             TryDelete(Path.Combine(dir, $"{id}.missing"));
             if (!File.Exists(file) && !await FetchWithRetriesAsync(id, file))
                 return null;
@@ -60,13 +57,12 @@ public sealed class CoverCache(
         catch (Exception e)
         {
             log.LogDebug("Cover {AppId}: {Error}", id, e.Message);
-            _mem.TryRemove(id, out _); // let a later card retry
+            _mem.TryRemove(id, out _);
             TryDelete(file);
             return null;
         }
     }
 
-    /// <summary>Up to <see cref="MaxAttempts"/> tries; returns false so this process does not ask again until the next start.</summary>
     private async Task<bool> FetchWithRetriesAsync(long id, string file)
     {
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
@@ -91,14 +87,9 @@ public sealed class CoverCache(
                 await Task.Delay(Backoffs[attempt - 1]);
                 continue;
             }
-            // CDN answered but none of the variants exist: another try rarely helps, but a flaky edge can 404 then 200.
             if (attempt == MaxAttempts)
             {
-                log.LogDebug(
-                    "Cover {AppId}: none on Steam CDN after {Max} attempts",
-                    id,
-                    MaxAttempts
-                );
+                log.LogDebug("Cover {AppId}: no SteamGridDB grid and no Steam portrait", id);
                 return false;
             }
             await Task.Delay(Backoffs[attempt - 1]);
@@ -108,29 +99,27 @@ public sealed class CoverCache(
 
     private async Task<bool> FetchAsync(long id, string file)
     {
+        if (steamGridDb is not null && await steamGridDb.TrySaveGridAsync(id, file))
+            return true;
+
         await _gate.WaitAsync();
         try
         {
-            foreach (var name in Variants)
-            {
-                using var r = await http.GetAsync(
-                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/{name}"
-                );
-                if (!r.IsSuccessStatusCode)
-                    continue;
-                var tmp = file + ".part";
-                await using (var fs = File.Create(tmp))
-                    await r.Content.CopyToAsync(fs);
-                File.Move(tmp, file, overwrite: true);
-                log.LogDebug(
-                    "Cover {AppId}: cached {Variant} ({Bytes} bytes)",
-                    id,
-                    name,
-                    new FileInfo(file).Length
-                );
-                return true;
-            }
-            return false;
+            using var r = await http.GetAsync(
+                $"https://cdn.cloudflare.steamstatic.com/steam/apps/{id}/library_600x900.jpg"
+            );
+            if (!r.IsSuccessStatusCode)
+                return false;
+            var tmp = file + ".part";
+            await using (var fs = File.Create(tmp))
+                await r.Content.CopyToAsync(fs);
+            File.Move(tmp, file, overwrite: true);
+            log.LogDebug(
+                "Cover {AppId}: Steam CDN library_600x900 ({Bytes} bytes)",
+                id,
+                new FileInfo(file).Length
+            );
+            return true;
         }
         finally
         {
@@ -146,7 +135,7 @@ public sealed class CoverCache(
         }
         catch
         {
-            // gone already, or locked; the next attempt overwrites a half-written .jpg
+            // gone already, or locked
         }
     }
 }

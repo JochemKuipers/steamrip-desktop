@@ -176,6 +176,65 @@ public class CatalogTests
     }
 
     [Fact]
+    public void Steam_app_id_title_prefix_strips_subtitle()
+    {
+        Assert.Equal(
+            "LEGO Batman",
+            SteamAppIdResolver.TitlePrefix("LEGO Batman: Legacy of the Dark Knight")
+        );
+        Assert.Equal("Cool Game", SteamAppIdResolver.TitlePrefix("Cool Game - Ultimate Edition"));
+        Assert.Null(SteamAppIdResolver.TitlePrefix("NoSubtitle"));
+        Assert.Equal(
+            ["LEGO Batman: Legacy of the Dark Knight", "LEGO Batman"],
+            SteamAppIdResolver.SearchTerms("LEGO Batman: Legacy of the Dark Knight").ToArray()
+        );
+    }
+
+    [Fact]
+    public void SteamGridDb_picks_highest_score_grid_url()
+    {
+        var url = SteamGridDb.BestGridUrl(Fixture.Read("steamgriddb_grids.json"));
+        Assert.Equal("https://cdn2.steamgriddb.com/grid/best_grid.png", url);
+    }
+
+    [Fact]
+    public void SteamGridDb_prefers_png_icon_when_scores_tie()
+    {
+        var url = SteamGridDb.BestIconUrl(Fixture.Read("steamgriddb_icons.json"));
+        Assert.Equal("https://cdn2.steamgriddb.com/icon/png_icon.png", url);
+        Assert.Equal(".png", SteamGridDb.ExtensionFor(url!, ".jpg"));
+        Assert.Equal(".jpg", SteamGridDb.ExtensionFor("https://cdn.example/x.jpeg", ".png"));
+    }
+
+    [Fact]
+    public async Task Steam_app_id_positive_disk_cache_short_circuits()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "sr-steam-apps-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "id-1941540.json"), "{\"id\":2215200}");
+            // HttpClient is unused when a positive cache hit exists (no network in unit tests).
+            var resolver = new SteamAppIdResolver(new HttpClient(), dir);
+            Assert.Equal(
+                2215200,
+                await resolver.ResolveAsync(1941540, "LEGO Batman: Legacy of the Dark Knight")
+            );
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(dir, true);
+            }
+            catch
+            {
+                // temp cleanup best-effort
+            }
+        }
+    }
+
+    [Fact]
     public void ResolvePath_uses_library_root_when_install_path_empty()
     {
         var g = new InstalledGame(
