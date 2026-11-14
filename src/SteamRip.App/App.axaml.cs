@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -31,6 +32,8 @@ public partial class App : Application
     private MainWindow? _window;
     private FileSystemWatcher? _showWatcher,
         _playWatcher;
+    private bool _exiting;
+    private readonly List<PosixSignalRegistration> _posixSignals = [];
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -41,6 +44,7 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             Services = AppServices.Build(desktop.Args ?? []);
             HookCrashLogging(Services.Log);
+            HookSessionExit(desktop);
             Services.Updates.Start();
 
             var play = Program.PlayArg(desktop.Args ?? []);
@@ -61,7 +65,13 @@ public partial class App : Application
             pause?.IsChecked = Services.Settings.AutoUpdatesPaused;
 
             WatchShowRequests();
-            desktop.ShutdownRequested += async (_, _) => await Services.DisposeAsync();
+            desktop.ShutdownRequested += async (_, _) =>
+            {
+                foreach (var r in _posixSignals)
+                    r.Dispose();
+                _posixSignals.Clear();
+                await Services.DisposeAsync();
+            };
         }
         base.OnFrameworkInitializationCompleted();
     }
@@ -84,12 +94,43 @@ public partial class App : Application
             log.LogError(e.Exception, "Unhandled exception on the UI thread");
             e.Handled = true;
         };
-        // SIGTERM / session logout skip the Avalonia shutdown path; make sure the last lines reach the file.
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
             log.LogInformation("Process exit");
             ((App)Current!).Services.LogFile.Dispose();
         };
+    }
+
+    /// <summary>
+    /// Tray apps with <see cref="ShutdownMode.OnExplicitShutdown"/> catch SIGTERM without quitting, so KDE/GNOME
+    /// logout waits forever. Hide-on-close must also let OS/application shutdown through.
+    /// </summary>
+    private void HookSessionExit(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        foreach (var sig in new[] { PosixSignal.SIGTERM, PosixSignal.SIGINT, PosixSignal.SIGHUP })
+        {
+            _posixSignals.Add(
+                PosixSignalRegistration.Create(
+                    sig,
+                    ctx =>
+                    {
+                        ctx.Cancel = true;
+                        RequestExit(desktop, sig.ToString());
+                    }
+                )
+            );
+        }
+    }
+
+    private void RequestExit(IClassicDesktopStyleApplicationLifetime desktop, string why)
+    {
+        if (_exiting)
+            return;
+        _exiting = true;
+        Services.Log.LogInformation("Exit requested ({Why})", why);
+        Dispatcher.UIThread.Post(() => desktop.Shutdown());
     }
 
     public void ShowWindow()
@@ -99,6 +140,13 @@ public partial class App : Application
             _window = new MainWindow { DataContext = new MainViewModel(Services) };
             _window.Closing += (_, e) =>
             {
+                if (
+                    _exiting
+                    || e.CloseReason
+                        is WindowCloseReason.ApplicationShutdown
+                            or WindowCloseReason.OSShutdown
+                )
+                    return;
                 e.Cancel = true;
                 _window.Hide();
             };
@@ -202,9 +250,8 @@ public partial class App : Application
 
     private void Quit_OnClick(object? sender, EventArgs e)
     {
-        Services.Log.LogInformation("Tray: quit");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            desktop.Shutdown();
+            RequestExit(desktop, "tray quit");
     }
 }
 
@@ -284,8 +331,8 @@ public sealed class AppServices : IAsyncDisposable
         log.LogInformation(
             "SteamRIP Desktop {Version} starting on {OS} ({Arch}), .NET {Runtime}; args [{Args}]; config {Config}; log level {Level}",
             Version,
-            System.Runtime.InteropServices.RuntimeInformation.OSDescription,
-            System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture,
+            RuntimeInformation.OSDescription,
+            RuntimeInformation.ProcessArchitecture,
             Environment.Version,
             string.Join(' ', args),
             Settings.DefaultDir,
