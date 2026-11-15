@@ -1,11 +1,15 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using SteamRip.Core.Catalog;
 using SteamRip.Core.Data;
+using SteamRip.Core.Install;
 using SteamRip.Core.Launch;
 using SteamRip.Core.Platform;
 using SteamRip.Core.Updates;
@@ -23,6 +27,7 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
     internal HostCapabilities? Capabilities => s.CapabilitiesNow;
     internal string DefaultProtonPath => ProtonLocator.Effective(s.Settings.DefaultProtonPath);
     internal string LibraryRoot => s.Settings.LibraryRoot;
+    public static bool IsLinux { get; } = OperatingSystem.IsLinux();
 
     [ObservableProperty]
     public partial int UpdatesAvailable { get; set; }
@@ -139,6 +144,81 @@ public partial class LibraryViewModel(AppServices s) : ObservableObject
         if (item.Post is not null)
             OpenPath(item.Post.Url);
     }
+
+    public void OpenWinetricks(LibraryItem item)
+    {
+        LastError = null;
+        try
+        {
+            s.Launcher.OpenWinetricks(item.ResolvedPath, ProtonFor(item));
+        }
+        catch (Exception e)
+        {
+            LastError = $"{item.Name}: {e.Message}";
+            s.Log.LogWarning("Winetricks {Name} failed: {Error}", item.Name, e.Message);
+            _ = s.Notifier.NotifyAsync(item.Name, e.Message);
+        }
+    }
+
+    public async Task RunExeInPrefixAsync(LibraryItem item)
+    {
+        LastError = null;
+        try
+        {
+            var window = (
+                Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime
+            )?.MainWindow;
+            if (window is null)
+                return;
+            var start = RedistInstaller.FindCommonRedist(item.ResolvedPath) ?? item.ResolvedPath;
+            IStorageFolder? folder = null;
+            if (Directory.Exists(start))
+                folder = await window.StorageProvider.TryGetFolderFromPathAsync(start);
+            var files = await window.StorageProvider.OpenFilePickerAsync(
+                new FilePickerOpenOptions
+                {
+                    Title = $"Run in {item.Name} prefix",
+                    AllowMultiple = false,
+                    SuggestedStartLocation = folder,
+                    FileTypeFilter =
+                    [
+                        new FilePickerFileType("Windows installers")
+                        {
+                            Patterns = ["*.exe", "*.msi"],
+                        },
+                    ],
+                }
+            );
+            if (files.Count == 0)
+                return;
+            var path = files[0].TryGetLocalPath();
+            if (string.IsNullOrEmpty(path))
+                return;
+            s.Log.LogInformation("{Name}: run in prefix {Exe}", item.Name, path);
+            await s.Notifier.NotifyAsync(item.Name, $"Running {Path.GetFileName(path)}…");
+            var code = await s.Launcher.RunInPrefixAsync(item.ResolvedPath, ProtonFor(item), path);
+            s.Log.LogInformation(
+                "{Name}: {Exe} exited {Code}",
+                item.Name,
+                Path.GetFileName(path),
+                code
+            );
+            if (code != 0)
+            {
+                LastError = $"{item.Name}: {Path.GetFileName(path)} exited {code}";
+                await s.Notifier.NotifyAsync(item.Name, $"{Path.GetFileName(path)} exited {code}");
+            }
+        }
+        catch (Exception e)
+        {
+            LastError = $"{item.Name}: {e.Message}";
+            s.Log.LogWarning("Run exe {Name} failed: {Error}", item.Name, e.Message);
+            await s.Notifier.NotifyAsync(item.Name, e.Message);
+        }
+    }
+
+    private string ProtonFor(LibraryItem item) =>
+        ProtonLocator.Effective(item.Game.ProtonPath ?? s.Settings.DefaultProtonPath);
 
     public void SetExe(LibraryItem item, string rel)
     {
@@ -358,6 +438,7 @@ public sealed partial class LibraryItem : ObservableObject
     }
 
     public string Name => Game.Name;
+    public bool IsLinux => LibraryViewModel.IsLinux;
     public string ResolvedPath => Game.ResolvePath(_owner.LibraryRoot);
     public string DefaultInstallPath => Path.Combine(_owner.LibraryRoot, Game.Slug);
     public string InstalledVersion => Game.InstalledVersion ?? "—";
@@ -487,6 +568,12 @@ public sealed partial class LibraryItem : ObservableObject
 
     [RelayCommand]
     private void OpenPage() => _owner.OpenPage(this);
+
+    [RelayCommand]
+    private void Winetricks() => _owner.OpenWinetricks(this);
+
+    [RelayCommand]
+    private Task RunExe() => _owner.RunExeInPrefixAsync(this);
 
     [RelayCommand]
     private void Forget() => _owner.Uninstall(this, deleteFiles: false);

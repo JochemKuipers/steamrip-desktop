@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SteamRip.Core.Install;
 
 namespace SteamRip.Core.Launch;
 
@@ -38,8 +39,8 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
     private readonly ILogger _log = logger ?? NullLogger<GameLauncher>.Instance;
     private readonly ConcurrentDictionary<long, RunningGame> _running = new();
 
-    public static string? UmuPath => Install.ArchiveTool.Find("umu-run");
-    public static string? WinePath => Install.ArchiveTool.Find("wine");
+    public static string? UmuPath => ArchiveTool.Find("umu-run");
+    public static string? WinePath => ArchiveTool.Find("wine");
 
     public static string PrefixDir(string gameRoot) => Path.Combine(gameRoot, "prefix");
 
@@ -57,7 +58,7 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
             ? "native"
             : $"umu-run: {UmuPath ?? "missing"}, wine: {WinePath ?? "missing"}";
 
-    public Task<RunningGame> LaunchAsync(LaunchSpec spec)
+    public async Task<RunningGame> LaunchAsync(LaunchSpec spec)
     {
         if (IsRunning(spec.PostId))
             throw new LaunchException($"{spec.Name} is already running.");
@@ -83,13 +84,14 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                     "umu-run not found; falling back to plain wine for {Name} (no Proton, no game fixes)",
                     spec.Name
                 );
+            await EnsureVcRedistAsync(spec.GameRoot, spec.ProtonPath);
         }
         var cmd = Compose(
             spec,
             runner,
             exe,
             prefix,
-            Install.ArchiveTool.Find,
+            ArchiveTool.Find,
             HostCapabilities.LargestScreen()
         );
         foreach (var w in cmd.Warnings)
@@ -178,7 +180,7 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
         var running = new RunningGame(spec, proc, started);
         _running[spec.PostId] = running;
         Started?.Invoke(spec.PostId);
-        return Task.FromResult(running);
+        return running;
 
         void Keep(string? line)
         {
@@ -189,6 +191,208 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                 tail.TryDequeue(out _);
             _log.LogTrace("[{Name}] {Line}", spec.Name, line);
         }
+    }
+
+    /// <summary>
+    /// Once per prefix: run VC++ installers from <c>_CommonRedist</c> into the Wine prefix so games
+    /// that need <c>mfc140.dll</c> / VC runtimes start without winetricks.
+    /// </summary>
+    public async Task EnsureVcRedistAsync(
+        string gameRoot,
+        string? protonPath,
+        CancellationToken ct = default
+    )
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+        var prefix = PrefixDir(gameRoot);
+        if (!RedistInstaller.NeedsInstall(prefix))
+            return;
+        var installers = RedistInstaller.FindVcInstallers(gameRoot);
+        if (installers.Count == 0)
+        {
+            RedistInstaller.MarkDone(prefix);
+            return;
+        }
+        _log.LogInformation(
+            "Installing {Count} VC redistributable(s) from _CommonRedist into {Prefix}",
+            installers.Count,
+            prefix
+        );
+        foreach (var inst in installers)
+        {
+            ct.ThrowIfCancellationRequested();
+            _log.LogInformation("Running {Installer}", Path.GetFileName(inst.FilePath));
+            try
+            {
+                var code = await RunInPrefixAsync(
+                    gameRoot,
+                    protonPath,
+                    inst.FilePath,
+                    inst.Args,
+                    ct: ct
+                );
+                _log.LogInformation(
+                    "{Installer} exited {Code}",
+                    Path.GetFileName(inst.FilePath),
+                    code
+                );
+            }
+            catch (Exception e)
+            {
+                _log.LogWarning(
+                    "{Installer} failed: {Error}",
+                    Path.GetFileName(inst.FilePath),
+                    e.Message
+                );
+            }
+        }
+        RedistInstaller.MarkDone(prefix);
+    }
+
+    /// <summary>
+    /// Run a Windows exe/msi inside the game's Proton prefix via umu-run (or wine), wait for exit.
+    /// No gamemode/gamescope — for redistributables and the "Run exe…" menu.
+    /// </summary>
+    public async Task<int> RunInPrefixAsync(
+        string gameRoot,
+        string? protonPath,
+        string windowsExe,
+        IReadOnlyList<string>? args = null,
+        TimeSpan? timeout = null,
+        CancellationToken ct = default
+    )
+    {
+        if (OperatingSystem.IsWindows())
+            throw new LaunchException("Run-in-prefix is only used on Linux.");
+        if (!File.Exists(windowsExe))
+            throw new LaunchException($"File not found: {windowsExe}");
+        var runner =
+            UmuPath
+            ?? WinePath
+            ?? throw new LaunchException(
+                "Neither umu-run nor wine is installed. Install umu-launcher (recommended)."
+            );
+        var prefix = PrefixDir(gameRoot);
+        Directory.CreateDirectory(prefix);
+        var psi = new ProcessStartInfo(runner)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WorkingDirectory = Path.GetDirectoryName(windowsExe)!,
+        };
+        if (windowsExe.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
+        {
+            psi.ArgumentList.Add("msiexec");
+            psi.ArgumentList.Add("/i");
+            psi.ArgumentList.Add(windowsExe);
+        }
+        else
+            psi.ArgumentList.Add(windowsExe);
+        if (args is not null)
+            foreach (var a in args)
+                psi.ArgumentList.Add(a);
+        psi.Environment["WINEPREFIX"] = prefix;
+        psi.Environment["GAMEID"] = "umu-default";
+        psi.Environment["STORE"] = "none";
+        if (!string.IsNullOrEmpty(protonPath))
+            psi.Environment["PROTONPATH"] = protonPath;
+        psi.Environment.Remove("UMU_RUNTIME_UPDATE");
+
+        _log.LogInformation(
+            "Prefix run: {Runner} {Exe} [{Args}] (prefix {Prefix}, proton {Proton})",
+            Path.GetFileName(runner),
+            Path.GetFileName(windowsExe),
+            args is null ? "" : string.Join(' ', args),
+            prefix,
+            protonPath ?? "umu default"
+        );
+
+        using var proc = new Process { StartInfo = psi };
+        proc.Start();
+        var wait = timeout ?? TimeSpan.FromMinutes(15);
+        try
+        {
+            var finished = await Task.Run(() => proc.WaitForExit((int)wait.TotalMilliseconds), ct);
+            if (!finished)
+            {
+                TryKill(proc);
+                throw new LaunchException(
+                    $"{Path.GetFileName(windowsExe)} timed out after {wait.TotalMinutes:0} min"
+                );
+            }
+            return proc.ExitCode;
+        }
+        catch (OperationCanceledException)
+        {
+            TryKill(proc);
+            throw;
+        }
+
+        static void TryKill(Process p)
+        {
+            try
+            {
+                if (!p.HasExited)
+                    p.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+                /* already gone */
+            }
+        }
+    }
+
+    /// <summary>
+    /// Open winetricks GUI against this game's prefix, using the same Proton wine binary Play would use.
+    /// </summary>
+    public void OpenWinetricks(string gameRoot, string? protonPath)
+    {
+        if (OperatingSystem.IsWindows())
+            throw new LaunchException("Winetricks is a Linux tool.");
+        var wt =
+            ArchiveTool.Find("winetricks")
+            ?? throw new LaunchException(
+                "winetricks is not installed. Install it to manage this game's prefix."
+            );
+        var prefix = PrefixDir(gameRoot);
+        Directory.CreateDirectory(prefix);
+        var psi = new ProcessStartInfo(wt) { UseShellExecute = false, WorkingDirectory = gameRoot };
+        psi.ArgumentList.Add("--gui");
+        psi.Environment["WINEPREFIX"] = prefix;
+        if (ProtonWineBins(protonPath) is { } bins)
+        {
+            psi.Environment["WINE"] = bins.Wine;
+            psi.Environment["WINESERVER"] = bins.Wineserver;
+            _log.LogInformation(
+                "Winetricks for {Prefix} with Proton wine {Wine}",
+                prefix,
+                bins.Wine
+            );
+        }
+        else
+            _log.LogWarning(
+                "Winetricks for {Prefix}: Proton wine not found for {Proton}; winetricks will use system wine",
+                prefix,
+                protonPath ?? "default"
+            );
+        Process.Start(psi);
+    }
+
+    /// <summary>Proton's <c>files/bin/wine</c> + <c>wineserver</c> for a stored path or GE/DW keyword.</summary>
+    public static (string Wine, string Wineserver)? ProtonWineBins(string? protonPath)
+    {
+        var dir = ProtonLocator.IsKeyword(protonPath)
+            ? ProtonLocator.ResolveInstalled(protonPath)
+            : protonPath;
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+            return null;
+        var wine = Path.Combine(dir, "files", "bin", "wine");
+        var server = Path.Combine(dir, "files", "bin", "wineserver");
+        if (!File.Exists(wine) || !File.Exists(server))
+            return null;
+        return (wine, server);
     }
 
     private static readonly HashSet<string> BaseEnv =

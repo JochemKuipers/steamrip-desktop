@@ -296,6 +296,19 @@
                                                         Header="{Binding DesktopShortcutLabel}"
                                                         Command="{Binding ToggleDesktopShortcutCommand}"
                                                     />
+                                                    <Separator IsVisible="{Binding IsLinux}" />
+                                                    <MenuItem
+                                                        Header="Winetricks"
+                                                        Command="{Binding WinetricksCommand}"
+                                                        IsVisible="{Binding IsLinux}"
+                                                        ToolTip.Tip="Open winetricks against this game's Proton prefix (same Proton wine as Play)"
+                                                    />
+                                                    <MenuItem
+                                                        Header="Run exe…"
+                                                        Command="{Binding RunExeCommand}"
+                                                        IsVisible="{Binding IsLinux}"
+                                                        ToolTip.Tip="Run an .exe or .msi (for example from _CommonRedist) inside this game's prefix"
+                                                    />
                                                     <Separator />
                                                     <MenuItem
                                                         Header="Forget (keep files)"
