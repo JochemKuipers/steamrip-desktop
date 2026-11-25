@@ -35,8 +35,8 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
             return Task.CompletedTask;
         var detail = string.Join(
                 "\n",
-                new[] { result.StandardError?.Trim(), result.StandardOutput?.Trim() }.Where(s =>
-                    !string.IsNullOrEmpty(s)
+                new[] { result.StandardError.Trim(), result.StandardOutput.Trim() }.Where(s =>
+                    s.Length > 0
                 )
             )
             .Trim();
