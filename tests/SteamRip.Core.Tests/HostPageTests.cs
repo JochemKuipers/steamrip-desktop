@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SteamRip.Core.Hosters;
 
 namespace SteamRip.Core.Tests;
@@ -54,5 +55,43 @@ public class HostPageTests
         Assert.Equal(a, b);
         Assert.NotEqual(a, c);
         Assert.Equal(64, a.Length);
+    }
+
+    [Fact]
+    public void GoFile_pick_file_accepts_direct_file_payload()
+    {
+        using var doc = JsonDocument.Parse(
+            """
+            {
+              "type": "file",
+              "name": "Phantom-Blade-0-SteamRIP.com.rar",
+              "size": 153049521810,
+              "md5": "d00ff9ae0b340fcfa56964efe739f4cd",
+              "link": "https://store-eu-par-7.gofile.io/download/web/e92c6f55/Phantom-Blade-0-SteamRIP.com.rar"
+            }
+            """
+        );
+        var f = GoFileResolver.PickFile(doc.RootElement, "4gYLZDsM");
+        Assert.Equal("Phantom-Blade-0-SteamRIP.com.rar", f.GetProperty("name").GetString());
+        Assert.Equal(153049521810, f.GetProperty("size").GetInt64());
+    }
+
+    [Fact]
+    public void GoFile_pick_file_picks_largest_in_folder()
+    {
+        using var doc = JsonDocument.Parse(
+            """
+            {
+              "type": "folder",
+              "children": {
+                "a": { "type": "file", "name": "small.rar", "size": 10, "link": "https://x/a" },
+                "b": { "type": "file", "name": "big.rar", "size": 99, "link": "https://x/b" },
+                "c": { "type": "folder", "name": "nested", "size": 0 }
+              }
+            }
+            """
+        );
+        var f = GoFileResolver.PickFile(doc.RootElement, "folder");
+        Assert.Equal("big.rar", f.GetProperty("name").GetString());
     }
 }

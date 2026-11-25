@@ -54,34 +54,13 @@ public sealed partial class GoFileResolver(HttpClient http, ILogger<GoFileResolv
             token,
             ct
         );
-        var data = contents.GetProperty("data");
-        if (!data.TryGetProperty("children", out var children))
-            throw new HostResolveException(
-                Host,
-                "folder has no children (password-protected or removed?)"
-            );
-
-        var files = children
-            .EnumerateObject()
-            .Select(child => child.Value)
-            .Where(c => c.GetProperty("type").GetString() == "file")
-            .ToList();
-        var n = files.Count;
-        if (n == 0)
-            throw new HostResolveException(Host, "no files in folder");
-        var f = files.MaxBy(c => c.GetProperty("size").GetInt64());
-        var name = f.GetProperty("name").GetString();
-        var size = f.GetProperty("size").GetInt64();
-        _log.LogInformation(
-            "GoFile folder {Id}: {Count} file(s); picked {File} ({Size} bytes)",
-            contentId,
-            n,
-            name,
-            size
-        );
+        var file = PickFile(contents.GetProperty("data"), contentId);
+        var name = file.GetProperty("name").GetString();
+        var size = file.GetProperty("size").GetInt64();
+        _log.LogInformation("GoFile {Id}: picked {File} ({Size} bytes)", contentId, name, size);
         return new ResolvedDownload(
             Host,
-            f.GetProperty("link").GetString()!,
+            file.GetProperty("link").GetString()!,
             new Dictionary<string, string>
             {
                 ["Cookie"] = "accountToken=" + token,
@@ -89,8 +68,32 @@ public sealed partial class GoFileResolver(HttpClient http, ILogger<GoFileResolv
             },
             name,
             size,
-            Md5: f.TryGetProperty("md5", out var md5) ? md5.GetString() : null
+            Md5: file.TryGetProperty("md5", out var md5) ? md5.GetString() : null
         );
+    }
+
+    /// <summary>
+    /// A <c>/d/&lt;code&gt;</c> link can be a folder (<c>children</c>) or a single file (<c>type=file</c> with <c>link</c>).
+    /// </summary>
+    public static JsonElement PickFile(JsonElement data, string contentId)
+    {
+        var kind = data.TryGetProperty("type", out var t) ? t.GetString() : null;
+        if (kind == "file" && data.TryGetProperty("link", out _))
+            return data;
+        if (!data.TryGetProperty("children", out var children))
+            throw new HostResolveException(
+                Hoster.GoFile,
+                $"content {contentId} has no files (type={kind ?? "?"}; password-protected or removed?)"
+            );
+        var files = children
+            .EnumerateObject()
+            .Select(child => child.Value)
+            .Where(c => c.GetProperty("type").GetString() == "file")
+            .ToList();
+        if (files.Count == 0)
+            throw new HostResolveException(Hoster.GoFile, "no files in folder");
+        // ponytail: multi-volume RAR sets are not downloaded as a set; largest file wins
+        return files.MaxBy(c => c.GetProperty("size").GetInt64());
     }
 
     private async Task<JsonElement> SendAsync(

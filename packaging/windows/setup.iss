@@ -46,6 +46,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\..\out\win-x64\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
+; Playwright driver for "Solve in browser" (single-file exe cannot embed it).
+Source: "..\..\out\win-x64\.playwright\*"; DestDir: "{app}\.playwright"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]

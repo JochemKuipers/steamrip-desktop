@@ -24,6 +24,9 @@ contents:
     dst: /usr/bin/steamrip-desktop
     file_info:
       mode: 0755
+  # Playwright driver for "Solve in browser" (single-file binary cannot embed it).
+  - src: out/linux-x64/.playwright
+    dst: /usr/lib/steamrip-desktop/.playwright
   - src: packaging/linux/steamrip-desktop.desktop
     dst: /usr/share/applications/steamrip-desktop.desktop
   - src: src/SteamRip.App/Assets/app.png

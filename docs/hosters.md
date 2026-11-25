@@ -26,10 +26,10 @@ Share of posts: ~25 %. No Cloudflare; pure API. No solver needed.
 
 1. `POST https://api.gofile.io/accounts` → `data.token` (guest account).
 2. Website token: `X-Website-Token = sha256hex("<UserAgent>::en-US::<token>::<floor(unix/14400)>::12af056dacea0b")`. The salt `12af056dacea0b` is a site constant lifted from gofile's JS; when the API starts answering `error-wt`, re-derive it (`GoFileResolver.Salt`, marked `ponytail:`).
-3. `GET https://api.gofile.io/contents/<id>?cache=true&sortField=createTime&sortDirection=1` with `Authorization: Bearer <token>` and the website token → `data.children[*]` with `link`, `name`, `size`, `md5`.
+3. `GET https://api.gofile.io/contents/<id>?cache=true&sortField=createTime&sortDirection=1` with `Authorization: Bearer <token>` and the website token. The payload is either a **file** (`data.type=file` with `link`/`name`/`size`/`md5` — common for steamrip single-archive posts) or a **folder** (`data.children[*]` with the same fields).
 4. Download `link` (`https://storeN.gofile.io/download/web/<id>/<name>`) with `Cookie: accountToken=<token>`. Supports `Range`. MD5 verified.
 
-Gotchas: guest accounts get lower throughput than premium. When a folder holds several files the resolver picks the **largest**; multi-volume RAR sets are not yet downloaded as a set (`ponytail:` ceiling). A folder with no `children` usually means password-protected or removed. One transient "SSL connection could not be established" was seen; retry fixed it.
+Gotchas: guest accounts get lower throughput than premium. When a folder holds several files the resolver picks the **largest**; multi-volume RAR sets are not yet downloaded as a set (`ponytail:` ceiling). A folder with no `children` (and not a file) usually means password-protected or removed. `data.overloaded: true` means GoFile is busy — still downloadable, often slow. One transient "SSL connection could not be established" was seen; retry fixed it.
 
 ## MegaDB (`megadb.net/<id>`)
 
@@ -66,7 +66,7 @@ Gotchas: slowest resolver (session + two page loads, ~15–25 s), so it is last 
 
 ## Manual fallback
 
-`ManualSolve.ViaBrowserAsync(post)` opens Playwright's headed Chromium on the FileDitch mirror, waits until the title is no longer a challenge, and feeds the HTML to `HostPages.ParseFileDitch`. It exists for the day the FlareSolverr box is down or Cloudflare escalates to an interactive CAPTCHA. It only runs when the user clicks "Solve in browser" on a queue item in the "needs you" state.
+`ManualSolve.ViaBrowserAsync(post)` opens Playwright's headed Chromium on the FileDitch mirror, waits until the title is no longer a challenge, and feeds the HTML to `HostPages.ParseFileDitch`. It exists for the day the FlareSolverr box is down or Cloudflare escalates to an interactive CAPTCHA. It only runs when the user clicks "Solve in browser" on a queue item in the "needs you" state. Packages ship the Playwright driver under `/usr/lib/steamrip-desktop/.playwright` (or next to the Windows/AppImage binary); `BrowserSolver.EnsureInstalledAsync` points `PLAYWRIGHT_DRIVER_SEARCH_PATH` at that tree before `playwright install chromium` (browsers themselves still land in `~/.cache/ms-playwright`).
 
 ## Adding or fixing a hoster
 

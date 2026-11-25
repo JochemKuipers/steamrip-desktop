@@ -52,6 +52,10 @@ appimagetool() {
 echo "== publish linux-x64 ($version)"
 dotnet publish "$proj" -c Release -r linux-x64 -o out/linux-x64 --nologo -v quiet \
   -p:Version="$version" -p:DebugType=none -p:TreatWarningsAsErrors=true
+# Playwright ships every OS's node under .playwright/node; keep only linux-x64 (~120 MB) for the packages.
+if [ -d out/linux-x64/.playwright/node ]; then
+  find out/linux-x64/.playwright/node -mindepth 1 -maxdepth 1 -type d ! -name 'linux-x64' -exec rm -rf {} +
+fi
 mkdir -p "$dist"
 
 for pkg in deb rpm archlinux; do
@@ -62,8 +66,9 @@ done
 echo "== AppImage"
 appdir="obj/AppDir"
 rm -rf "$appdir"
-mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "$appdir/usr/bin" "$appdir/usr/lib/$app" "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/256x256/apps"
 cp "out/linux-x64/$app" "$appdir/usr/bin/$app"
+cp -a "out/linux-x64/.playwright" "$appdir/usr/lib/$app/"
 cp "packaging/linux/$app.desktop" "$appdir/usr/share/applications/"
 cp "$proj/Assets/app.png" "$appdir/usr/share/icons/hicolor/256x256/apps/$app.png"
 ln -s "usr/bin/$app" "$appdir/AppRun"

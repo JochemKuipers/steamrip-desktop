@@ -696,6 +696,8 @@ public sealed class UpdateService : IAsyncDisposable
 
         var attempts = 0;
         var skipped = new HashSet<Hoster>();
+        // After every other mirror fails, clear skips once and accept a slow host rather than "needs you".
+        var allowSlowAbort = true;
         // At least three tries; when hosts are skipped for being slow, allow one attempt per distinct mirror host.
         var maxAttempts = Math.Max(3, post.Mirrors.Select(m => m.Host).Distinct().Count());
         while (true)
@@ -714,6 +716,18 @@ public sealed class UpdateService : IAsyncDisposable
                 resolved = job.PreResolved;
             else
                 (resolved, errors) = await _resolvers.ResolveAsync(post.Mirrors, skipped, ct);
+            if (resolved is null && skipped.Count > 0 && allowSlowAbort)
+            {
+                _log.LogWarning(
+                    "{Name}: no other mirror resolved; falling back to skipped host(s) [{Hosts}]",
+                    post.Name,
+                    string.Join(", ", skipped)
+                );
+                skipped.Clear();
+                allowSlowAbort = false;
+                attempts--;
+                continue;
+            }
             if (resolved is null)
                 throw new NeedsAttentionException(
                     "No mirror could be resolved:\n" + string.Join("\n", errors)
@@ -733,7 +747,7 @@ public sealed class UpdateService : IAsyncDisposable
                     dest,
                     new Progress<DownloadProgress>(job.Progress),
                     ct,
-                    switchMirrorIfSlow: true
+                    switchMirrorIfSlow: allowSlowAbort
                 );
             }
             catch (DownloadException e) when (e.RetryResolve && attempts < maxAttempts)

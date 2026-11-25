@@ -14,12 +14,76 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
 
     public static Task EnsureInstalledAsync(ILogger? log = null)
     {
-        log?.LogInformation("Checking Playwright Chromium (playwright install chromium)…");
-        var code = Program.Main(["install", "chromium"]);
-        if (code == 0)
+        var root = FindDriverRoot();
+        if (root is null)
+        {
+            log?.LogError(
+                "Playwright driver (.playwright/) not found next to the app or under /usr/lib/steamrip-desktop; cannot install Chromium"
+            );
+            throw new SolverException(
+                "Playwright driver is missing from this install. Reinstall the package, or run from a build that includes .playwright/."
+            );
+        }
+        Environment.SetEnvironmentVariable("PLAYWRIGHT_DRIVER_SEARCH_PATH", root);
+        log?.LogInformation(
+            "Checking Playwright Chromium (driver {Root}, playwright install chromium)…",
+            root
+        );
+        // RunWithResult captures stderr; Program.Main inherits stdio which is invisible under the tray app.
+        var result = new Program().RunWithResult(["install", "chromium"]);
+        if (result.ExitCode == 0)
             return Task.CompletedTask;
-        log?.LogError("playwright install chromium exited with {Code}", code);
-        throw new SolverException($"playwright install chromium exited with {code}");
+        var detail = string.Join(
+                "\n",
+                new[] { result.StandardError?.Trim(), result.StandardOutput?.Trim() }.Where(s =>
+                    !string.IsNullOrEmpty(s)
+                )
+            )
+            .Trim();
+        log?.LogError(
+            "playwright install chromium exited with {Code}: {Detail}",
+            result.ExitCode,
+            detail.Length > 0 ? detail : "(no output)"
+        );
+        throw new SolverException(
+            detail.Length > 0
+                ? $"playwright install chromium failed: {detail}"
+                : $"playwright install chromium exited with {result.ExitCode}"
+        );
+    }
+
+    /// <summary>
+    /// Directory that contains <c>.playwright/node</c>. Single-file publishes do not embed the driver, so packages
+    /// ship it under <c>/usr/lib/steamrip-desktop</c> (or next to the Windows/AppImage binary).
+    /// </summary>
+    public static string? FindDriverRoot()
+    {
+        foreach (var dir in CandidateDriverRoots())
+        {
+            if (
+                !string.IsNullOrWhiteSpace(dir)
+                && Directory.Exists(Path.Combine(dir, ".playwright", "node"))
+            )
+                return Path.GetFullPath(dir);
+        }
+        return null;
+    }
+
+    private static IEnumerable<string?> CandidateDriverRoots()
+    {
+        yield return Environment.GetEnvironmentVariable("PLAYWRIGHT_DRIVER_SEARCH_PATH");
+        yield return AppContext.BaseDirectory;
+        if (Environment.ProcessPath is { } exe)
+        {
+            var bin = Path.GetDirectoryName(exe);
+            yield return bin;
+            // deb/rpm/arch: /usr/bin/steamrip-desktop → /usr/lib/steamrip-desktop
+            if (bin is not null)
+                yield return Path.GetFullPath(Path.Combine(bin, "..", "lib", "steamrip-desktop"));
+        }
+        // AppImage mount
+        if (Environment.GetEnvironmentVariable("APPDIR") is { Length: > 0 } appdir)
+            yield return Path.Combine(appdir, "usr", "lib", "steamrip-desktop");
     }
 
     public async Task<SolveResult> SolveAsync(
@@ -29,6 +93,10 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
         CancellationToken ct = default
     )
     {
+        // EnsureInstalled already set this; set again in case SolveAsync is called alone.
+        if (FindDriverRoot() is { } root)
+            Environment.SetEnvironmentVariable("PLAYWRIGHT_DRIVER_SEARCH_PATH", root);
+
         _log.LogInformation(
             "Opening visible browser for {Url} (referer {Referer})",
             url,

@@ -15,6 +15,12 @@ Write-Host "== publish win-x64 ($Version)"
 dotnet publish src/SteamRip.App -c Release -r win-x64 -o out/win-x64 --nologo -v quiet `
     -p:Version=$Version -p:DebugType=none -p:TreatWarningsAsErrors=true
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Playwright ships every OS's node under .playwright/node; keep only win32_x64 for the installer.
+$nodeRoot = "out\win-x64\.playwright\node"
+if (Test-Path $nodeRoot) {
+    Get-ChildItem $nodeRoot -Directory | Where-Object { $_.Name -ne "win32_x64" } |
+        Remove-Item -Recurse -Force
+}
 
 $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 $isccPath = if ($iscc) { $iscc.Source } else {
