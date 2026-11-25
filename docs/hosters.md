@@ -4,7 +4,7 @@ Each hoster has one `IHostResolver` in `src/SteamRip.Core/Hosters/` that turns a
 
 All four flows below were verified end to end (resolve → ranged download → `unrar t`) on Nov 6 2026 through the production code. HTML parsing is isolated in `HostPages.cs` and tested against fixtures in `tests/SteamRip.Core.Tests/Fixtures/`.
 
-Common downloader behaviour: user agent is a Chrome/154 Linux string (`Downloader.DefaultUserAgent`), `.part` file with `Range: bytes=<have>-`, a 416 means the part is already complete, a 302/401/403 or a `text/html` body means the direct URL died → `DownloadException(retryResolve: true)` and `UpdateService` re-resolves (once per attempt, up to the retry budget). SHA-256/MD5 are verified when the resolver supplied them; mismatch deletes the file.
+Common downloader behaviour: user agent is a Chrome/154 Linux string (`Downloader.DefaultUserAgent`), `.part` file with `Range: bytes=<have>-`, a 416 means the part is already complete, a 302/401/403 or a `text/html` body means the direct URL died → `DownloadException(retryResolve: true)` and `UpdateService` re-resolves (once per attempt, up to the retry budget). Game downloads also watch transfer rate: after a 30 s grace, staying under 1 MiB/s for 60 s throws `DownloadException(retryResolve, skipHost)` so the next resolve skips that hoster and tries the next in `HosterOrder`; the `.part` is kept for resume. SHA-256/MD5 are verified when the resolver supplied them; mismatch deletes the file.
 
 ## FileDitch (`*.fileditchfiles.st`, `*.fileditchfiles.me`)
 

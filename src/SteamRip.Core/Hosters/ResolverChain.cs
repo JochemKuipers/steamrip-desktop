@@ -37,19 +37,23 @@ public sealed class ResolverChain(
 
     public async Task<(ResolvedDownload? Result, IReadOnlyList<string> Errors)> ResolveAsync(
         IReadOnlyList<Mirror> mirrors,
+        IReadOnlyCollection<Hoster>? exclude = null,
         CancellationToken ct = default
     )
     {
         var preference = CurrentOrder();
         var errors = new List<string>();
         _log.LogInformation(
-            "Resolving: {Count} mirror(s) [{Hosts}], order [{Order}]",
+            "Resolving: {Count} mirror(s) [{Hosts}], order [{Order}]{Exclude}",
             mirrors.Count,
             string.Join(", ", mirrors.Select(m => m.Host)),
-            string.Join(" → ", preference)
+            string.Join(" → ", preference),
+            exclude is { Count: > 0 } ? $", skip [{string.Join(", ", exclude)}]" : ""
         );
         foreach (var host in preference)
         {
+            if (exclude is not null && exclude.Contains(host))
+                continue;
             if (!_byHost.TryGetValue(host, out var resolver))
                 continue;
             foreach (var m in mirrors.Where(m => m.Host == host))

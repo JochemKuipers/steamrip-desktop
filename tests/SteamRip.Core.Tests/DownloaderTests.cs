@@ -19,6 +19,8 @@ public class DownloaderTests : IAsyncLifetime
     private string _url = null!;
     private byte[] _payload = null!;
     private int _cutAfter = -1; // bytes to send before closing, -1 = never cut
+    private int _throttleChunk = -1; // bytes per write when throttling; -1 = full speed
+    private int _throttleDelayMs; // sleep after each throttled chunk
     private readonly List<string?> _rangeHeaders = [];
     private CancellationTokenSource _cts = null!;
 
@@ -70,9 +72,25 @@ public class DownloaderTests : IAsyncLifetime
                         : _payload.Length - (int)start;
                 try
                 {
-                    await ctx.Response.OutputStream.WriteAsync(
-                        _payload.AsMemory((int)start, toSend)
-                    );
+                    if (_throttleChunk > 0)
+                    {
+                        var sent = 0;
+                        while (sent < toSend)
+                        {
+                            var n = Math.Min(_throttleChunk, toSend - sent);
+                            await ctx.Response.OutputStream.WriteAsync(
+                                _payload.AsMemory((int)start + sent, n)
+                            );
+                            await ctx.Response.OutputStream.FlushAsync();
+                            sent += n;
+                            if (_throttleDelayMs > 0)
+                                await Task.Delay(_throttleDelayMs);
+                        }
+                    }
+                    else
+                        await ctx.Response.OutputStream.WriteAsync(
+                            _payload.AsMemory((int)start, toSend)
+                        );
                     if (toSend < _payload.Length - start)
                         ctx.Response.Abort();
                     else
@@ -182,6 +200,32 @@ public class DownloaderTests : IAsyncLifetime
         Assert.True(ex.RetryResolve);
         Assert.False(File.Exists(dest));
         Assert.False(File.Exists(dest + ".part"));
+        Directory.Delete(Path.GetDirectoryName(dest)!, true);
+    }
+
+    [Fact]
+    public async Task Sustained_slow_transfer_asks_for_other_mirror()
+    {
+        // ~10 KiB/s — well under any sensible min — for longer than SlowFor.
+        _throttleChunk = 2 * 1024;
+        _throttleDelayMs = 200;
+        var dest = Path.Combine(
+            Path.GetTempPath(),
+            "sr-dl-" + Guid.NewGuid().ToString("N"),
+            "file.rar"
+        );
+        var dl = new Downloader(new HttpClient())
+        {
+            SlowMinBytesPerSecond = 100 * 1024,
+            SlowGrace = TimeSpan.Zero,
+            SlowFor = TimeSpan.FromSeconds(1),
+        };
+        var ex = await Assert.ThrowsAsync<DownloadException>(() =>
+            dl.DownloadAsync(Src(), dest, null, CancellationToken.None, switchMirrorIfSlow: true)
+        );
+        Assert.True(ex.RetryResolve);
+        Assert.True(ex.SkipHost);
+        Assert.True(File.Exists(dest + ".part")); // resume on the next mirror
         Directory.Delete(Path.GetDirectoryName(dest)!, true);
     }
 }

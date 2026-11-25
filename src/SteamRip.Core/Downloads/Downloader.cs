@@ -17,13 +17,24 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
 {
     public const string DefaultUserAgent =
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36";
+
+    /// <summary>Below this sustained rate, a download with <c>switchMirrorIfSlow</c> aborts so another mirror can be tried.</summary>
+    public double SlowMinBytesPerSecond { get; init; } = 1024 * 1024;
+
+    /// <summary>Ignore slow samples during the first seconds (TCP / CDN ramp-up).</summary>
+    public TimeSpan SlowGrace { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long the rate must stay under <see cref="SlowMinBytesPerSecond"/> before aborting.</summary>
+    public TimeSpan SlowFor { get; init; } = TimeSpan.FromSeconds(60);
+
     private readonly ILogger _log = logger ?? NullLogger<Downloader>.Instance;
 
     public async Task<string> DownloadAsync(
         ResolvedDownload src,
         string destinationPath,
         IProgress<DownloadProgress>? progress,
-        CancellationToken ct
+        CancellationToken ct,
+        bool switchMirrorIfSlow = false
     )
     {
         var part = destinationPath + ".part";
@@ -129,6 +140,7 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
             var lastTick = sw.Elapsed;
             var lastLog = sw.Elapsed;
             var startBytes = have;
+            TimeSpan? slowSince = null;
             int n;
             while ((n = await body.ReadAsync(buf, ct)) > 0)
             {
@@ -138,9 +150,32 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
                 var now = sw.Elapsed;
                 if ((now - lastTick).TotalMilliseconds >= 500)
                 {
-                    progress?.Report(
-                        new DownloadProgress(have, total, sinceTick / (now - lastTick).TotalSeconds)
-                    );
+                    var rate = sinceTick / (now - lastTick).TotalSeconds;
+                    progress?.Report(new DownloadProgress(have, total, rate));
+                    if (switchMirrorIfSlow && now >= SlowGrace)
+                    {
+                        if (rate < SlowMinBytesPerSecond)
+                        {
+                            slowSince ??= now;
+                            if (now - slowSince.Value >= SlowFor)
+                            {
+                                _log.LogWarning(
+                                    "{Host} stayed under {Min:0.0} MiB/s for {Seconds:0}s; aborting .part at {Have} bytes to try another mirror",
+                                    src.Host,
+                                    SlowMinBytesPerSecond / (1024.0 * 1024.0),
+                                    SlowFor.TotalSeconds,
+                                    have
+                                );
+                                throw new DownloadException(
+                                    $"{src.Host} slower than 1 MiB/s for {SlowFor.TotalSeconds:0}s",
+                                    retryResolve: true,
+                                    skipHost: true
+                                );
+                            }
+                        }
+                        else
+                            slowSince = null;
+                    }
                     sinceTick = 0;
                     lastTick = now;
                 }
@@ -233,8 +268,12 @@ public sealed class Downloader(HttpClient http, ILogger<Downloader>? logger = nu
     }
 }
 
-public sealed class DownloadException(string message, bool retryResolve) : Exception(message)
+public sealed class DownloadException(string message, bool retryResolve, bool skipHost = false)
+    : Exception(message)
 {
     /// <summary>True when the sensible retry is to resolve a fresh link (expired/403/HTML) rather than resume the same URL.</summary>
     public bool RetryResolve => retryResolve;
+
+    /// <summary>True when this host should be skipped on the next resolve (sustained slow transfer).</summary>
+    public bool SkipHost => skipHost;
 }

@@ -26,7 +26,7 @@ flowchart LR
 | `Catalog` | `CatalogClient`, `CatalogParser`, `TitleParser`, `HosterDetector`, `CatalogPost`, `Mirror`, `Hoster` | Page through the REST API (100/page, 1.5 s between pages, 429/502/503 back-off ≤6 attempts honouring `Retry-After`), parse title version, `acf.tagmetafield` build, `steam_app_id`, Game Size, `shortc-button` mirrors. `GetModifiedSinceAsync(since)` for incremental checks. |
 | `Solver` | `FlareSolverrClient`, `Session`, `BrowserSolver` | `request.get`, `sessions.create/destroy`, fork `actions` (`eval`, `wait_for`); health check `GET /`; Playwright headed Chromium fallback with challenge-title polling. |
 | `Hosters` | `IHostResolver`, `FileDitchResolver`, `GoFileResolver`, `MegaDbResolver`, `BuzzHeavierResolver`, `ResolverChain`, `HostPages`, `ResolvedDownload` | Share URL → direct URL + headers + optional hashes/expiry. See `hosters.md`. |
-| `Downloads` | `Downloader`, `DownloadProgress`, `DownloadException` | Ranged resume into `<file>.part`, 416 = complete, 302/401/403/HTML body → `retryResolve`, SHA-256/MD5 verify, 30 s debug progress lines. |
+| `Downloads` | `Downloader`, `DownloadProgress`, `DownloadException` | Ranged resume into `<file>.part`, 416 = complete, 302/401/403/HTML body → `retryResolve`, SHA-256/MD5 verify, 30 s debug progress lines. Game downloads also abort with `skipHost` when the rate stays under 1 MiB/s for 60 s after a 30 s grace, so another mirror can be tried. |
 | `Install` | `ArchiveTool`, `SaveLocator`, `Installer`, `InstallOptions`, `InstallResult` | See "Install flow". |
 | `Launch` | `ExeFinder`, `ProtonLocator`, `ProtonDownloader`, `GameLauncher`, `LaunchSpec`, `LaunchCommand`, `RunningGame`, `LaunchOptions`, `HostCapabilities` | See "Launch flow" and "Launch tweaks". |
 | `Updates` | `UpdateService`, `UpdateDetector`, `Job`, `JobStage`, `ManualSolve` | Scheduler, queue, play; the only place that stitches the others together. |
@@ -91,7 +91,7 @@ Migrations are appended to `Database.Migrations[]`; never edit an existing entry
 
 ### Download
 
-`DownloadWithRetryAsync`: if a non-`.part` archive already exists in `<downloads>/<slug>/` it is reused (saves a resolve). Otherwise `ResolverChain.ResolveAsync(mirrors)`; on `DownloadException(retryResolve)` the link is re-resolved, on network errors it waits 15 s; three attempts, then the job goes to `NeedsAttention` with the collected errors and one notification. A `PreResolved` download (from the manual browser) skips resolution on the first attempt.
+`DownloadWithRetryAsync`: if a non-`.part` archive already exists in `<downloads>/<slug>/` it is reused (saves a resolve). Otherwise `ResolverChain.ResolveAsync(mirrors, exclude: skipped)`; on `DownloadException(retryResolve)` the link is re-resolved (and the host is excluded for the rest of the job when `skipHost` — sustained slow transfer), on network errors it waits 15 s; at least three attempts (or one per distinct mirror host when skipping), then the job goes to `NeedsAttention` with the collected errors and one notification. A `PreResolved` download (from the manual browser) skips resolution on the first attempt.
 
 ### Install flow (`Installer.InstallAsync`)
 

@@ -695,6 +695,9 @@ public sealed class UpdateService : IAsyncDisposable
         }
 
         var attempts = 0;
+        var skipped = new HashSet<Hoster>();
+        // At least three tries; when hosts are skipped for being slow, allow one attempt per distinct mirror host.
+        var maxAttempts = Math.Max(3, post.Mirrors.Select(m => m.Host).Distinct().Count());
         while (true)
         {
             attempts++;
@@ -710,7 +713,7 @@ public sealed class UpdateService : IAsyncDisposable
             if (attempts == 1 && job.PreResolved is not null)
                 resolved = job.PreResolved;
             else
-                (resolved, errors) = await _resolvers.ResolveAsync(post.Mirrors, ct);
+                (resolved, errors) = await _resolvers.ResolveAsync(post.Mirrors, skipped, ct);
             if (resolved is null)
                 throw new NeedsAttentionException(
                     "No mirror could be resolved:\n" + string.Join("\n", errors)
@@ -729,35 +732,42 @@ public sealed class UpdateService : IAsyncDisposable
                     resolved,
                     dest,
                     new Progress<DownloadProgress>(job.Progress),
-                    ct
+                    ct,
+                    switchMirrorIfSlow: true
                 );
             }
-            catch (DownloadException e) when (e.RetryResolve && attempts < 3)
+            catch (DownloadException e) when (e.RetryResolve && attempts < maxAttempts)
             {
+                if (e.SkipHost)
+                    skipped.Add(resolved.Host);
                 _log.LogWarning(
-                    "{Name}: {Error}; re-resolving (attempt {Attempt}/3)",
+                    "{Name}: {Error}; re-resolving (attempt {Attempt}/{Max}){Skip}",
                     post.Name,
                     e.Message,
-                    attempts + 1
+                    attempts + 1,
+                    maxAttempts,
+                    e.SkipHost ? $", skipping {resolved.Host}" : ""
                 );
             }
-            catch (HttpRequestException e) when (attempts < 3)
+            catch (HttpRequestException e) when (attempts < maxAttempts)
             {
                 _log.LogWarning(
                     e,
-                    "{Name}: network error; retrying in 15 s (attempt {Attempt}/3)",
+                    "{Name}: network error; retrying in 15 s (attempt {Attempt}/{Max})",
                     post.Name,
-                    attempts + 1
+                    attempts + 1,
+                    maxAttempts
                 );
                 await Task.Delay(TimeSpan.FromSeconds(15), ct);
             }
-            catch (IOException e) when (attempts < 3)
+            catch (IOException e) when (attempts < maxAttempts)
             {
                 _log.LogWarning(
                     e,
-                    "{Name}: I/O error; retrying in 15 s (attempt {Attempt}/3)",
+                    "{Name}: I/O error; retrying in 15 s (attempt {Attempt}/{Max})",
                     post.Name,
-                    attempts + 1
+                    attempts + 1,
+                    maxAttempts
                 );
                 await Task.Delay(TimeSpan.FromSeconds(15), ct);
             }
