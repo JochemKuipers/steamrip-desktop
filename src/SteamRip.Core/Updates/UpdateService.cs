@@ -14,8 +14,8 @@ namespace SteamRip.Core.Updates;
 
 /// <summary>
 /// The single background engine: periodic catalog sync, update detection for installed games, and a job queue.
-/// Resolves are one-at-a-time (FlareSolverr), downloads run in parallel when they use different hosters,
-/// and installs are one-at-a-time so the next download can start while the previous game is still extracting.
+/// Resolves are one-at-a-time (FlareSolverr); downloads run in parallel when they use different hosters;
+/// installs run freely (each game has its own staging path).
 /// </summary>
 public sealed class UpdateService : IAsyncDisposable
 {
@@ -34,7 +34,6 @@ public sealed class UpdateService : IAsyncDisposable
     private readonly ProtonDownloader? _protons;
     private readonly SemaphoreSlim _wake = new(0);
     private readonly SemaphoreSlim _resolveGate = new(1, 1);
-    private readonly SemaphoreSlim _installGate = new(1, 1);
     private readonly ConcurrentDictionary<Hoster, SemaphoreSlim> _hostGates = new();
     private readonly object _inFlightLock = new();
     private readonly HashSet<Task> _inFlight = [];
@@ -560,47 +559,36 @@ public sealed class UpdateService : IAsyncDisposable
 
             var archivePath = await DownloadWithRetryAsync(job, post, ct);
 
-            // Installs share one lock so another job can keep downloading while this one extracts.
-            job.Set(JobStage.Installing, "Waiting to install…");
-            await _installGate.WaitAsync(ct);
-            InstallResult result;
-            try
+            if (_launcher.IsRunning(post.Id))
             {
-                if (_launcher.IsRunning(post.Id))
-                {
-                    _log.LogInformation(
-                        "{Name} is running; waiting for it to exit before installing",
-                        post.Name
-                    );
-                    job.Set(
-                        JobStage.Installing,
-                        "Downloaded. Waiting for the game to close before installing…"
-                    );
-                    await _launcher.WaitForExitAsync(post.Id, ct);
-                }
-
-                job.Set(JobStage.Installing, "Installing…");
-                _db.SetInstallState(post.Id, InstallState.Installing);
-                var custom = string.IsNullOrWhiteSpace(previous?.InstallPath)
-                    ? null
-                    : previous.InstallPath;
-                var opt = new InstallOptions(_settings.LibraryRoot, _settings.KeepBackups, custom);
-                result = await _installer.InstallAsync(
-                    archivePath,
-                    post.Slug,
-                    post.SteamAppId,
-                    previous?.InstalledVersion,
-                    opt,
-                    new Progress<(string Stage, int Percent)>(p =>
-                        job.Set(JobStage.Installing, $"{p.Stage} {p.Percent}%", p.Percent / 100.0)
-                    ),
-                    ct
+                _log.LogInformation(
+                    "{Name} is running; waiting for it to exit before installing",
+                    post.Name
                 );
+                job.Set(
+                    JobStage.Installing,
+                    "Downloaded. Waiting for the game to close before installing…"
+                );
+                await _launcher.WaitForExitAsync(post.Id, ct);
             }
-            finally
-            {
-                _installGate.Release();
-            }
+
+            job.Set(JobStage.Installing, "Installing…");
+            _db.SetInstallState(post.Id, InstallState.Installing);
+            var custom = string.IsNullOrWhiteSpace(previous?.InstallPath)
+                ? null
+                : previous.InstallPath;
+            var opt = new InstallOptions(_settings.LibraryRoot, _settings.KeepBackups, custom);
+            var result = await _installer.InstallAsync(
+                archivePath,
+                post.Slug,
+                post.SteamAppId,
+                previous?.InstalledVersion,
+                opt,
+                new Progress<(string Stage, int Percent)>(p =>
+                    job.Set(JobStage.Installing, $"{p.Stage} {p.Percent}%", p.Percent / 100.0)
+                ),
+                ct
+            );
 
             if (_settings.DeleteArchiveAfterInstall)
             {

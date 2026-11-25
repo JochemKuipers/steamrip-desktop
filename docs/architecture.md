@@ -29,7 +29,7 @@ flowchart LR
 | `Downloads` | `Downloader`, `DownloadProgress`, `DownloadException` | Ranged resume into `<file>.part`, 416 = complete, 302/401/403/HTML body → `retryResolve`, SHA-256/MD5 verify, 30 s debug progress lines. Game downloads also abort with `skipHost` when the rate stays under 1 MiB/s for 60 s after a 30 s grace, so another mirror can be tried. |
 | `Install` | `ArchiveTool`, `SaveLocator`, `Installer`, `InstallOptions`, `InstallResult` | See "Install flow". |
 | `Launch` | `ExeFinder`, `ProtonLocator`, `ProtonDownloader`, `GameLauncher`, `LaunchSpec`, `LaunchCommand`, `RunningGame`, `LaunchOptions`, `HostCapabilities` | See "Launch flow" and "Launch tweaks". |
-| `Updates` | `UpdateService`, `UpdateDetector`, `Job`, `JobStage`, `ManualSolve` | Scheduler, queue, play; the only place that stitches the others together. Jobs run concurrently: one resolve at a time, one download per hoster (different hosts overlap), one install at a time (so the next download can start while the previous extract runs). |
+| `Updates` | `UpdateService`, `UpdateDetector`, `Job`, `JobStage`, `ManualSolve` | Scheduler, queue, play; the only place that stitches the others together. Jobs run concurrently: one resolve at a time, one download per hoster (different hosts overlap), installs free in parallel (per-slug staging). |
 | `Data` | `Database`, `Settings`, `InstalledGame`, `InstallState` | SQLite with hand-written migrations; JSON settings. |
 | `Platform` | `ISecretStore` (+ `SecretToolStore`, `DpapiFileStore`, `FileSecretStore`), `Notifier`, `Autostart`, `Shortcuts` | OS shims, Linux + Windows. |
 | `Logging` | `FileLoggerProvider` | Daily file, 7-day prune, background writer, `LineWritten` for the UI tail, runtime `MinimumLevel`. |
@@ -102,7 +102,7 @@ Migrations are appended to `Database.Migrations[]`; never edit an existing entry
 5. Swap: old folder → temp name, staging → `<library>/<slug>/`, delete old. Failure before the swap leaves the old install untouched.
 6. Prune backups to `KeepBackups`. Optionally delete the archive.
 
-`UpdateService.RunJobAsync` wraps this behind the install gate (downloads of other jobs keep going): if the game is running it waits for exit first; after install it keeps `exe_rel` if that file still exists, else re-runs `ExeFinder.Best`; Proton, args and playtime carry over.
+`UpdateService.RunJobAsync` wraps this: if the game is running it waits for exit first; after install it keeps `exe_rel` if that file still exists, else re-runs `ExeFinder.Best`; Proton, args and playtime carry over. Installs of different games overlap freely.
 
 ### Game shortcuts (`Platform/Shortcuts`)
 
