@@ -97,8 +97,8 @@ public sealed partial class JobItem : ObservableObject
     public string Kind => Job.IsUpdate ? "Update" : "Install";
     public string Version => UpdateDetector.Normalize(Job.Post.VersionKey) ?? "";
 
-    public bool CanSolveInBrowser =>
-        Job.Post.Mirrors.Any(m => m.Host == Core.Catalog.Hoster.FileDitch);
+    [ObservableProperty]
+    public partial bool CanSolveInBrowser { get; set; }
 
     public JobItem(QueueViewModel owner, Job job)
     {
@@ -121,6 +121,10 @@ public sealed partial class JobItem : ObservableObject
                     or JobStage.Installing;
         Indeterminate = Active && Job.Fraction is null;
         NeedsAttention = Job.Stage == JobStage.NeedsAttention;
+        CanSolveInBrowser =
+            NeedsAttention
+            && Job.OfferBrowserSolve
+            && Job.Post.Mirrors.Any(m => m.Host == Core.Catalog.Hoster.FileDitch);
         Failed = Job.Stage is JobStage.Failed or JobStage.Cancelled;
         Done = Job.Stage == JobStage.Done;
     }

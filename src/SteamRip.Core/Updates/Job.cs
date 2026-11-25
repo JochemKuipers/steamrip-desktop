@@ -26,6 +26,10 @@ public sealed class Job(CatalogPost post, bool isUpdate)
     public long Bytes { get; private set; }
     public long? Total { get; private set; }
     public string? Error { get; private set; }
+
+    /// <summary>Queue may offer "Solve in browser" (resolve failed and a FileDitch mirror exists).</summary>
+    public bool OfferBrowserSolve { get; private set; }
+
     public CancellationTokenSource Cts { get; } = new();
 
     /// <summary>Set when the user solved a challenge by hand; used for the first download attempt instead of the resolver chain.</summary>
@@ -33,12 +37,19 @@ public sealed class Job(CatalogPost post, bool isUpdate)
 
     public event Action<Job>? Changed;
 
-    internal void Set(JobStage stage, string status, double? fraction = null, string? error = null)
+    internal void Set(
+        JobStage stage,
+        string status,
+        double? fraction = null,
+        string? error = null,
+        bool browserSolve = false
+    )
     {
         Stage = stage;
         Status = status;
         Fraction = fraction;
         Error = error;
+        OfferBrowserSolve = browserSolve;
         if (stage is not JobStage.Downloading)
         {
             BytesPerSecond = 0;

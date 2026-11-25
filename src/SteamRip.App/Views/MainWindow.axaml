@@ -553,8 +553,7 @@
                                                     Classes="primary"
                                                     Content="Solve in browser"
                                                     Command="{Binding SolveInBrowserCommand}"
-                                                    IsVisible="{Binding NeedsAttention}"
-                                                    IsEnabled="{Binding CanSolveInBrowser}"
+                                                    IsVisible="{Binding CanSolveInBrowser}"
                                                     ToolTip.Tip="Opens a visible Chromium on the FileDitch mirror so you can pass its check; the download then continues here."
                                                 />
                                                 <Button

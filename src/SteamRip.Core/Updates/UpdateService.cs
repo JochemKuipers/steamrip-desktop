@@ -674,7 +674,12 @@ public sealed class UpdateService : IAsyncDisposable
         }
         catch (NeedsAttentionException e)
         {
-            job.Set(JobStage.NeedsAttention, e.Message, error: e.Message);
+            job.Set(
+                JobStage.NeedsAttention,
+                e.Message,
+                error: e.Message,
+                browserSolve: e.BrowserSolve
+            );
             _db.SetInstallState(post.Id, InstallState.NeedsAttention, e.Message);
             _db.LogEvent("attention", $"{post.Name}: {e.Message}", post.Id);
             _log.LogWarning("=== Job needs attention: {Name}: {Message}", post.Name, e.Message);
@@ -762,7 +767,8 @@ public sealed class UpdateService : IAsyncDisposable
             }
             if (resolved is null)
                 throw new NeedsAttentionException(
-                    "No mirror could be resolved:\n" + string.Join("\n", errors)
+                    "No mirror could be resolved:\n" + string.Join("\n", errors),
+                    browserSolve: true
                 );
 
             var fileName = Installer.SafeName(resolved.FileName ?? post.Slug + ".rar");
@@ -834,19 +840,31 @@ public sealed class UpdateService : IAsyncDisposable
             return;
         Directory.CreateDirectory(downloadsRoot);
         Directory.CreateDirectory(libraryRoot);
-        var dl = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(downloadsRoot))!);
-        var lib = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(libraryRoot))!);
-        // archive + extracted (~1.3x) if same drive; be conservative.
-        var need = dl.Name == lib.Name ? (long)(size * 2.4) : size;
+        // Path.GetPathRoot is always "/" on Unix, so DriveInfo must take the real path
+        // (statvfs) — otherwise every check reports the boot drive.
+        var dlPath = Path.GetFullPath(downloadsRoot);
+        var libPath = Path.GetFullPath(libraryRoot);
+        var dl = new DriveInfo(dlPath);
+        var lib = new DriveInfo(libPath);
+        var free = dl.AvailableFreeSpace;
+        var sameVolume = OperatingSystem.IsWindows()
+            ? string.Equals(
+                Path.GetPathRoot(dlPath),
+                Path.GetPathRoot(libPath),
+                StringComparison.OrdinalIgnoreCase
+            )
+            : dl.TotalSize == lib.TotalSize && free == lib.AvailableFreeSpace;
+        // archive + extracted (~1.3x) if same volume; be conservative.
+        var need = sameVolume ? (long)(size * 2.4) : size;
         _log.LogDebug(
             "Disk check: need ~{Need} on {Drive}, free {Free}",
             Job.Fmt(need),
-            dl.Name,
-            Job.Fmt(dl.AvailableFreeSpace)
+            dlPath,
+            Job.Fmt(free)
         );
-        if (dl.AvailableFreeSpace < need)
+        if (free < need)
             throw new NeedsAttentionException(
-                $"Not enough disk space: need ~{Job.Fmt(need)}, have {Job.Fmt(dl.AvailableFreeSpace)} on {dl.Name}"
+                $"Not enough disk space: need ~{Job.Fmt(need)}, have {Job.Fmt(free)} on {dlPath}"
             );
     }
 
@@ -964,4 +982,9 @@ public sealed class UpdateService : IAsyncDisposable
 }
 
 /// <summary>The job cannot proceed without the user (no mirror resolvable, disk full, challenge needs a real browser).</summary>
-public sealed class NeedsAttentionException(string message) : Exception(message);
+public sealed class NeedsAttentionException(string message, bool browserSolve = false)
+    : Exception(message)
+{
+    /// <summary>True when a headed FileDitch solve might unblock the job (resolve failed); false for disk space etc.</summary>
+    public bool BrowserSolve { get; } = browserSolve;
+}
