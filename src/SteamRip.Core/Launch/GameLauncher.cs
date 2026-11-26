@@ -219,6 +219,8 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
             installers.Count,
             prefix
         );
+        // Cap so a stuck silent installer cannot leave Play's RelayCommand disabled for 15 min.
+        var perInstaller = TimeSpan.FromMinutes(2);
         foreach (var inst in installers)
         {
             ct.ThrowIfCancellationRequested();
@@ -230,6 +232,7 @@ public sealed class GameLauncher(ILogger<GameLauncher>? logger = null)
                     protonPath,
                     inst.FilePath,
                     inst.Args,
+                    timeout: perInstaller,
                     ct: ct
                 );
                 _log.LogInformation(

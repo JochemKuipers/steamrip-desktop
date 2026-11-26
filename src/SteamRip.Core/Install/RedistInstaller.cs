@@ -22,8 +22,9 @@ public static class RedistInstaller
     }
 
     /// <summary>
-    /// VC installers under <paramref name="gameRoot"/>/<c>_CommonRedist</c>. Prefers Abbey Ross AIO
-    /// when present; otherwise every <c>vcredist*</c> / <c>vc_redist*</c> (x64 before x86).
+    /// VC installers under <paramref name="gameRoot"/>/<c>_CommonRedist</c>: every
+    /// <c>vcredist*</c> / <c>vc_redist*</c> (x64 before x86). Skips <c>VisualCppRedist_AIO*</c> —
+    /// that 7z SFX often never exits under Proton <c>waitforexitandrun</c>, which greys out Play forever.
     /// </summary>
     public static IReadOnlyList<VcInstaller> FindVcInstallers(string gameRoot)
     {
@@ -31,24 +32,11 @@ public static class RedistInstaller
         if (dir is null)
             return [];
 
-        var files = Directory
-            .EnumerateFiles(dir)
-            .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        var aio = files
-            .Where(f =>
-                Path.GetFileName(f)
-                    .Contains("VisualCppRedist_AIO", StringComparison.OrdinalIgnoreCase)
-            )
-            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        if (aio.Count > 0)
-            return [.. aio.Select(f => new VcInstaller(f, AioArgs))];
-
         return
         [
-            .. files
+            .. Directory
+                .EnumerateFiles(dir)
+                .Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 .Where(IsVcRedistName)
                 .OrderBy(VcSortKey)
                 .ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
@@ -56,7 +44,7 @@ public static class RedistInstaller
         ];
     }
 
-    private static readonly string[] AioArgs = ["/yAI"];
+    // ponytail: AIO packs ignored; if a title only ships AIO, first play marks done and launches without VC install.
     private static readonly string[] MsArgs = ["/install", "/quiet", "/norestart"];
 
     private static bool IsVcRedistName(string path)

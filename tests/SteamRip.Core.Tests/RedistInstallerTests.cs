@@ -33,7 +33,7 @@ public class RedistInstallerTests : IDisposable
     }
 
     [Fact]
-    public void Prefers_VisualCppRedist_AIO_over_individual_vcredist()
+    public void Skips_VisualCppRedist_AIO_and_non_VC_setup_exes()
     {
         var dir = Path.Combine(_root, "_CommonRedist");
         Directory.CreateDirectory(dir);
@@ -43,9 +43,22 @@ public class RedistInstallerTests : IDisposable
         Touch(dir, "dxwebsetup.exe");
 
         var found = RedistInstaller.FindVcInstallers(_root);
-        Assert.Single(found);
-        Assert.EndsWith("VisualCppRedist_AIO_x86_x64.exe", found[0].FilePath);
-        Assert.Equal(["/yAI"], found[0].Args);
+        Assert.Equal(2, found.Count);
+        Assert.EndsWith("vcredist_2015-2019_x64.exe", found[0].FilePath);
+        Assert.EndsWith("vcredist_x86.exe", found[1].FilePath);
+        Assert.DoesNotContain(
+            found,
+            i => Path.GetFileName(i.FilePath).Contains("AIO", StringComparison.OrdinalIgnoreCase)
+        );
+    }
+
+    [Fact]
+    public void AIO_only_CommonRedist_yields_nothing()
+    {
+        var dir = Path.Combine(_root, "_CommonRedist");
+        Directory.CreateDirectory(dir);
+        Touch(dir, "VisualCppRedist_AIO_x86_x64.exe");
+        Assert.Empty(RedistInstaller.FindVcInstallers(_root));
     }
 
     [Fact]
