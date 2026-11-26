@@ -15,7 +15,11 @@ public static partial class HostPages
     [GeneratedRegex("<title>([^<]*)</title>")]
     private static partial Regex Title();
 
-    /// <summary>FileDitch: the primary download button is a signed CDN URL whose base64 token starts with the unix expiry.</summary>
+    /// <summary>
+    /// FileDitch (legacy HTML): primary download button is <c>a.btn-main</c> with a signed CDN <c>href</c>
+    /// whose base64 token starts with the unix expiry. Current FileDitch pages omit <c>href</c> until JS
+    /// fills it — the resolver arms the button in-browser; this still covers fixtures and older mirrors.
+    /// </summary>
     public static (string Url, DateTime? ExpiresUtc, string? FileName) ParseFileDitch(string html)
     {
         var anchor = FileDitchAnchor().Match(html);
@@ -26,10 +30,26 @@ public static partial class HostPages
                 throw new FormatException(
                     "FileDitch: page is still the browser-verification interstitial (needs a real browser solve)"
                 );
+            // Direct FlareSolverr get without a steamrip referer bounces here with the catalog HTML.
+            if (
+                html.Contains("steamrip.com", StringComparison.OrdinalIgnoreCase)
+                && !html.Contains("btn-main", StringComparison.Ordinal)
+            )
+                throw new FormatException(
+                    "FileDitch: landed on steamrip.com (missing referer; needs session hop)"
+                );
             throw new FormatException("FileDitch: no btn-main download link in page");
         }
         var url = WebUtility.HtmlDecode(m.Groups[1].Value);
-        DateTime? expires = null;
+        var title = Title().Match(html) is { Success: true } t
+            ? WebUtility.HtmlDecode(t.Groups[1].Value).Trim()
+            : null;
+        return (url, FileDitchExpiry(url), string.IsNullOrEmpty(title) ? null : title);
+    }
+
+    /// <summary>Decode the unix expiry from a FileDitch signed CDN path token, if the layout matches.</summary>
+    public static DateTime? FileDitchExpiry(string url)
+    {
         try
         {
             var token = url.Split('/').Last();
@@ -38,15 +58,12 @@ public static partial class HostPages
                 Convert.FromBase64String(token + pad)
             );
             if (long.TryParse(decoded.Split(':')[0], out var unix))
-                expires = DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime;
+                return DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime;
         }
         catch
-        { /* token layout changed; expiry stays unknown */
+        { /* token layout changed */
         }
-        var title = Title().Match(html) is { Success: true } t
-            ? WebUtility.HtmlDecode(t.Groups[1].Value).Trim()
-            : null;
-        return (url, expires, string.IsNullOrEmpty(title) ? null : title);
+        return null;
     }
 
     [GeneratedRegex("""hx-get="(/[^"]+/download\?t=[^"&]+)""")]

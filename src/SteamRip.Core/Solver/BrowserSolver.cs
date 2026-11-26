@@ -148,6 +148,25 @@ public sealed class BrowserSolver(ILogger<BrowserSolver>? logger = null)
             throw new SolverException("Timed out waiting for the challenge to be solved.");
         }
 
+        // FileDitch: btn-main has no href until JS fills it on pointerenter.
+        try
+        {
+            var btn = page.Locator("a.btn-main");
+            if (await btn.CountAsync() > 0)
+            {
+                await btn.First.DispatchEventAsync("pointerenter");
+                await page.WaitForFunctionAsync(
+                    "() => !!document.querySelector('a.btn-main')?.getAttribute('href')",
+                    null,
+                    new PageWaitForFunctionOptions { Timeout = 15_000 }
+                );
+            }
+        }
+        catch (Exception e)
+        {
+            _log.LogDebug("No FileDitch href after pointerenter: {Error}", e.Message);
+        }
+
         var cookies = (await context.CookiesAsync())
             .Where(c =>
                 page.Url.Contains(c.Domain.TrimStart('.'), StringComparison.OrdinalIgnoreCase)

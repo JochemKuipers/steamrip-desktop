@@ -8,17 +8,14 @@ Common downloader behaviour: user agent is a Chrome/154 Linux string (`Downloade
 
 ## FileDitch (`*.fileditchfiles.st`, `*.fileditchfiles.me`)
 
-Share of posts: ~71 %. Needs FlareSolverr.
+Share of posts: ~71 %. Needs FlareSolverr (sessions + actions, same fork as BuzzHeavier).
 
-1. `FlareSolverrClient.GetAsync(shareUrl, disableMedia: true)` — FileDitch runs its own WASM browser check ("Verifying your browser…"); FlareSolverr passes it in ~5–8 s and returns the real landing page.
-2. `HostPages.ParseFileDitch(html)`:
-   - if the HTML still contains `Verifying your browser` → `FormatException("browser-verification interstitial")` (solver did not clear it; chain moves on).
-   - first `<a … class="… btn-main …" href="…">` is the file URL. Ignore the `abuse.fileditch.com` link.
-   - the URL is `https://<rotating-domain>/<base64>`; the base64 token decodes to `<unix-expiry>:<signature>:<path>`. Expiry is parsed when the layout matches, otherwise left null.
-   - `<title>` gives the file name.
-3. Download: plain GET, **no cookies, no referer** needed. `206 Partial Content`, `Accept-Ranges: bytes`, `Content-Type: application/vnd.rar`.
+1. Direct `request.get` on the share URL **bounces to steamrip.com** (referer gate, same class of bug as BuzzHeavier). Create a session, `GetAsync("https://steamrip.com/")`, then `eval` `location.href = shareUrl`.
+2. `wait_for` XPath `//a[contains(@class,'btn-main')]` (WASM check + page render, ~5–15 s).
+3. Current FileDitch pages ship `<a class="btn btn-main">` **without** an `href`. JS fetches the signed URL on `pointerenter` (`GET` same path with header `X-FD-DL: <token>`, JSON `{ok,u}`). Dispatch `pointerenter`, wait ~4 s, read `a.btn-main[href]`. Older pages still embed `href` in HTML — `HostPages.ParseFileDitch` covers that fallback.
+4. Signed URL is `https://<rotating-domain>/<base64>`; token decodes to `<unix-expiry>:…`. `<title>` is the file name. Download: plain GET, **no cookies, no referer**. `206` / `Accept-Ranges: bytes` / `application/vnd.rar`.
 
-Gotchas: the token's embedded expiry said ~12 h, but in practice a 403 arrived within ~5 minutes of resolving; always treat a 403 as "re-resolve", never as "file gone". Signed URLs are redacted in logs (`FileDitchResolver.Redact`). No hashes published.
+Gotchas: treating a steamrip bounce as "no download button" was the Nov 2026 failure mode — always hop with a real referer. Token expiry on the path said ~12 h, but 403s still arrive within minutes; re-resolve. Signed URLs are redacted in logs. No hashes published.
 
 ## GoFile (`gofile.io/d/<id>`)
 

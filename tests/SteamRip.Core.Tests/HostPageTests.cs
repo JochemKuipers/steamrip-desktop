@@ -26,6 +26,35 @@ public class HostPageTests
     }
 
     [Fact]
+    public void FileDitch_nohref_btn_main_needs_js_arm()
+    {
+        var ex = Assert.Throws<FormatException>(() =>
+            HostPages.ParseFileDitch(Fixture.Read("fileditch_solved_nohref.html"))
+        );
+        Assert.Contains("no btn-main download link", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileDitch_steamrip_bounce_is_reported_as_such()
+    {
+        var ex = Assert.Throws<FormatException>(() =>
+            HostPages.ParseFileDitch(Fixture.Read("fileditch_steamrip_bounce.html"))
+        );
+        Assert.Contains("steamrip.com", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FileDitch_expiry_decodes_from_signed_path_token()
+    {
+        var url =
+            "https://example.test/MTc5NDAzMzQ3Njpya29ZQndlUkhFM2ltZVhydURhSk5HN2tNcHMwYXo2ZlFSNWZpMVk3bmNNOjExMzYvYmFscGhhMjUvM2FkMm";
+        Assert.Equal(
+            DateTimeOffset.FromUnixTimeSeconds(1794033476).UtcDateTime,
+            HostPages.FileDitchExpiry(url)
+        );
+    }
+
+    [Fact]
     public void Bzzhr_page_yields_hx_path_and_hashes()
     {
         var (hx, md5, sha, name) = HostPages.ParseBzzhr(Fixture.Read("bzzhr_solved.html"));
